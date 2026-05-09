@@ -1,14 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { GraduationCap, Eye, EyeOff, User, Shield, Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
+import {
+  GraduationCap,
+  Eye,
+  EyeOff,
+  Shield,
+  Mail,
+  Lock,
+  ArrowRight,
+} from 'lucide-react';
 
-const DEMO_CREDS = {
-  student: { email: 'student@demo.com', password: 'demo1234' },
-  admin: { email: 'admin@demo.com', password: 'admin1234' },
-};
+import {
+  OAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+
+import { auth } from '../../firebase/firebase';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const [role, setRole] = useState('student');
@@ -16,196 +26,330 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+
   const navigate = useNavigate();
 
-  const fillDemo = () => {
-    setEmail(DEMO_CREDS[role].email);
-    setPassword(DEMO_CREDS[role].password);
+  // =========================
+  // MICROSOFT LOGIN
+  // =========================
+  const handleMicrosoftLogin = async () => {
+    try {
+      setLoading(true);
+
+      const provider = new OAuthProvider('microsoft.com');
+
+      // Set your specific Tenant ID here because your Azure app is configured as single-tenant.
+      // Replace 'YOUR_TENANT_ID_HERE' with your actual Azure Directory (tenant) ID.
+      provider.setCustomParameters({
+        tenant: '7359f896-71e2-4dae-b8a3-15cdf97f2f10'
+      });
+
+      const result = await signInWithPopup(auth, provider);
+
+      const user = result.user;
+
+      // Restrict only college emails
+      const handleMicrosoftLogin = async () => {
+        try {
+          setLoading(true);
+
+          const provider = new OAuthProvider('microsoft.com');
+
+          // Your Azure Tenant ID
+          provider.setCustomParameters({
+            tenant: '7359f896-71e2-4dae-b8a3-15cdf97f2f10',
+          });
+
+          const result = await signInWithPopup(auth, provider);
+
+          const user = result.user;
+
+          console.log('Logged in user:', user);
+
+          toast.success('Microsoft Login Successful');
+
+          navigate('/student/dashboard');
+
+        } catch (error) {
+          console.error('Microsoft Login Error:', error);
+
+          toast.error(error.message || 'Login Failed');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      toast.success('Microsoft Login Successful');
+
+      navigate('/student/dashboard');
+    } catch (error) {
+      console.error("Microsoft Login Error:", error);
+      toast.error(`Login Failed: ${error.message || 'Unknown Error'}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = async (e) => {
+  // =========================
+  // ADMIN LOGIN
+  // =========================
+  const handleAdminLogin = async (e) => {
     e.preventDefault();
-    if (!email || !password) { toast.error('Please fill all fields'); return; }
-    setLoading(true);
-    const result = await login(email, password, role);
-    setLoading(false);
-    if (result.success) {
-      toast.success(`Welcome back!`);
-      navigate(role === 'admin' ? '/admin/dashboard' : '/student/dashboard');
-    } else {
-      toast.error(result.error);
+
+    if (!email || !password) {
+      toast.error('Please fill all fields');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await signInWithEmailAndPassword(auth, email, password);
+
+      toast.success('Admin Login Successful');
+
+      navigate('/admin/dashboard');
+    } catch (error) {
+      console.log(error);
+      toast.error('Invalid admin credentials');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: '#000000' }}>
-      {/* Animated background */}
+    <div
+      className="min-h-screen flex items-center justify-center relative overflow-hidden px-6 py-10"
+      style={{ background: '#050505' }}
+    >
+      {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: 'linear',
+          }}
           className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #f97316, transparent)' }}
-        />
-        <motion.div
-          animate={{ scale: [1.2, 1, 1.2], rotate: [90, 0, 90] }}
-          transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-          className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #f59e0b, transparent)' }}
-        />
-        <motion.div
-          animate={{ x: [0, 40, 0], y: [0, -20, 0] }}
-          transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute top-1/3 right-1/4 w-64 h-64 rounded-full opacity-5"
-          style={{ background: 'radial-gradient(circle, #06b6d4, transparent)' }}
+          style={{
+            background:
+              'radial-gradient(circle, rgba(249,115,22,0.5), transparent)',
+          }}
         />
 
-        {/* Grid pattern */}
-        <div className="absolute inset-0 opacity-5" style={{
-          backgroundImage: 'linear-gradient(rgba(249, 115, 22,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(249, 115, 22,0.3) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
-        }} />
+        <motion.div
+          animate={{
+            scale: [1.2, 1, 1.2],
+            rotate: [90, 0, 90],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: 'linear',
+          }}
+          className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full opacity-10"
+          style={{
+            background:
+              'radial-gradient(circle, rgba(245,158,11,0.5), transparent)',
+          }}
+        />
       </div>
 
+      {/* Login Card */}
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 25 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-        className="relative w-full max-w-md mx-4"
+        transition={{ duration: 0.5 }}
+        className="relative w-full max-w-md"
       >
-        {/* Card */}
-        <div className="glass-strong rounded-3xl p-8" style={{ boxShadow: '0 25px 80px rgba(0,0,0,0.6)' }}>
+        <div
+          className="backdrop-blur-2xl border rounded-3xl p-8 md:p-10"
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            borderColor: 'rgba(255,255,255,0.08)',
+            boxShadow: '0 25px 80px rgba(0,0,0,0.6)',
+          }}
+        >
           {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', stiffness: 200, delay: 0.2 }}
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-              style={{ background: 'linear-gradient(135deg, #f97316, #f59e0b)' }}
+          <div className="flex flex-col items-center mb-10">
+            <div
+              className="w-20 h-20 rounded-3xl flex items-center justify-center mb-5"
+              style={{
+                background:
+                  'linear-gradient(135deg, #f97316, #f59e0b)',
+              }}
             >
-              <GraduationCap size={32} color="white" />
-            </motion.div>
-            <h1 className="text-2xl font-bold gradient-text">STUDENT 360</h1>
-            <p className="text-sm mt-1" style={{ color: '#71717a' }}>Academic Intelligence Platform</p>
+              <GraduationCap size={38} color="white" />
+            </div>
+
+            <h1 className="text-3xl font-bold text-white tracking-wide">
+              STUDENT 360°
+            </h1>
+
+            <p className="text-sm mt-2 text-zinc-400 text-center">
+              AI Powered Academic Intelligence Platform
+            </p>
           </div>
 
-          {/* Role selector */}
-          <div className="flex gap-2 p-1 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #27272a' }}>
-            {[
-              { value: 'student', label: 'Student', icon: User },
-              { value: 'admin', label: 'Admin', icon: Shield },
-            ].map(({ value, label, icon: Icon }) => (
+          {/* Role Toggle */}
+          <div
+            className="flex gap-2 p-1 rounded-2xl mb-8"
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            {['student', 'admin'].map((item) => (
               <button
-                key={value}
-                onClick={() => { setRole(value); setEmail(''); setPassword(''); }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200"
-                style={role === value ? {
-                  background: 'linear-gradient(135deg, #f97316, #f59e0b)',
-                  color: 'white',
-                  boxShadow: '0 4px 15px rgba(249, 115, 22,0.4)',
-                } : { color: '#71717a' }}
+                key={item}
+                onClick={() => {
+                  setRole(item);
+                  setEmail('');
+                  setPassword('');
+                }}
+                className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${role === item ? 'text-white' : 'text-zinc-500'
+                  }`}
+                style={
+                  role === item
+                    ? {
+                      background:
+                        'linear-gradient(135deg, #f97316, #f59e0b)',
+                      boxShadow:
+                        '0 10px 25px rgba(249,115,22,0.35)',
+                    }
+                    : {}
+                }
               >
-                <Icon size={15} />
-                {label}
+                <div className="flex items-center justify-center gap-2">
+                  {item === 'student' ? (
+                    <Mail size={16} />
+                  ) : (
+                    <Shield size={16} />
+                  )}
+
+                  {item === 'student' ? 'Student' : 'Admin'}
+                </div>
               </button>
             ))}
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: '#a1a1aa' }}>Email Address</label>
-              <div className="relative">
-                <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#71717a' }} />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid #27272a',
-                    color: '#fafafa',
-                  }}
-                  onFocus={e => e.target.style.borderColor = '#f97316'}
-                  onBlur={e => e.target.style.borderColor = '#27272a'}
-                />
+          {/* STUDENT LOGIN */}
+          {role === 'student' ? (
+            <div className="space-y-6">
+              <button
+                onClick={handleMicrosoftLogin}
+                disabled={loading}
+                className="w-full py-4 rounded-2xl text-white font-semibold transition-all duration-300 flex items-center justify-center gap-3"
+                style={{
+                  background:
+                    'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                  boxShadow:
+                    '0 10px 30px rgba(37,99,235,0.35)',
+                }}
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    Sign in with Microsoft
+                    <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+
+              <p className="text-center text-xs text-zinc-500 leading-6">
+                Use your organization Microsoft account to access
+                STUDENT 360°
+              </p>
+            </div>
+          ) : (
+            /* ADMIN LOGIN */
+            <form onSubmit={handleAdminLogin} className="space-y-5">
+              {/* Email */}
+              <div>
+                <label className="block text-sm mb-2 text-zinc-300">
+                  Admin Email
+                </label>
+
+                <div className="relative">
+                  <Mail
+                    size={16}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+                  />
+
+                  <input
+                    type="email"
+                    placeholder="Enter admin email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-white outline-none focus:border-orange-500 transition-all"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: '#a1a1aa' }}>Password</label>
-              <div className="relative">
-                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: '#71717a' }} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full pl-10 pr-12 py-3 rounded-xl text-sm transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid #27272a',
-                    color: '#fafafa',
-                  }}
-                  onFocus={e => e.target.style.borderColor = '#f97316'}
-                  onBlur={e => e.target.style.borderColor = '#27272a'}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(p => !p)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2"
-                  style={{ color: '#71717a' }}
-                >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
+              {/* Password */}
+              <div>
+                <label className="block text-sm mb-2 text-zinc-300">
+                  Password
+                </label>
+
+                <div className="relative">
+                  <Lock
+                    size={16}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+                  />
+
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-12 pr-12 py-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-white outline-none focus:border-orange-500 transition-all"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500"
+                  >
+                    {showPassword ? (
+                      <EyeOff size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <motion.button
-              type="submit"
-              disabled={loading}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 mt-2 transition-all disabled:opacity-60"
-              style={{
-                background: 'linear-gradient(135deg, #f97316, #f59e0b)',
-                boxShadow: '0 4px 20px rgba(249, 115, 22,0.4)',
-              }}
-            >
-              {loading ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                  className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                />
-              ) : (
-                <>Sign In <ArrowRight size={16} /></>
-              )}
-            </motion.button>
-          </form>
-
-          {/* Demo credentials */}
-          <div className="mt-6 p-4 rounded-xl" style={{ background: 'rgba(249, 115, 22,0.08)', border: '1px solid rgba(249, 115, 22,0.2)' }}>
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles size={13} style={{ color: '#fdba74' }} />
-              <span className="text-xs font-semibold" style={{ color: '#fdba74' }}>Demo Credentials</span>
-            </div>
-            <div className="space-y-1 text-xs" style={{ color: '#71717a' }}>
-              <p><span style={{ color: '#a1a1aa' }}>Student:</span> student@demo.com / demo1234</p>
-              <p><span style={{ color: '#a1a1aa' }}>Admin:</span> admin@demo.com / admin1234</p>
-            </div>
-            <button
-              onClick={fillDemo}
-              className="mt-2 text-xs font-medium flex items-center gap-1 hover:underline"
-              style={{ color: '#f97316' }}
-            >
-              <ArrowRight size={11} /> Use demo credentials
-            </button>
-          </div>
+              {/* Button */}
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 rounded-2xl text-white font-semibold flex items-center justify-center gap-2"
+                style={{
+                  background:
+                    'linear-gradient(135deg, #f97316, #f59e0b)',
+                  boxShadow:
+                    '0 10px 30px rgba(249,115,22,0.35)',
+                }}
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    Admin Login
+                    <ArrowRight size={18} />
+                  </>
+                )}
+              </motion.button>
+            </form>
+          )}
         </div>
       </motion.div>
     </div>

@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
         setUser(parsed.user);
         setRole(parsed.role);
         setStudentData(parsed.studentData || null);
-      } catch {}
+      } catch { }
     }
     setLoading(false);
   }, []);

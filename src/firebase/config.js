@@ -1,20 +1,23 @@
 // Firebase configuration
 // Replace with your actual Firebase project config
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "demo-api-key",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "student360-demo.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "student360-demo",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "student360-demo.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789:web:abcdef",
+  apiKey: "AIzaSyAFldBP95ODLxgC-IZEctBP2bSZDdlIGp0",
+  authDomain: "student-360-962c4.firebaseapp.com",
+  projectId: "student-360-962c4",
+  storageBucket: "student-360-962c4.firebasestorage.app",
+  messagingSenderId: "127075135949",
+  appId: "1:127075135949:web:0d580d63198ec1268ad484",
+  measurementId: "G-Y4FZ915EQY"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-
-export default app;
+const analytics = getAnalytics(app);
