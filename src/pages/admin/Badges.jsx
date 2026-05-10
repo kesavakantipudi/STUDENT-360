@@ -1,31 +1,60 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { mockStudents, mockResults, mockBadges, mockStudentBadges } from '../../data/mockData';
-import { generateInitials, getAvatarColor, formatDate } from '../../utils/helpers';
+import { generateInitials, getAvatarColor } from '../../utils/helpers';
 import { Trophy, Star, Plus } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import toast from 'react-hot-toast';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
+
+const BADGES = [
+  { id: 'b1', name: 'Algorithm Pro', icon: '🧠', color: '#f59e0b' },
+  { id: 'b2', name: 'Code Ninja', icon: '🥷', color: '#10b981' },
+  { id: 'b3', name: 'Top Performer', icon: '⭐', color: '#f97316' },
+  { id: 'b4', name: 'Database Guru', icon: '🗄️', color: '#06b6d4' },
+  { id: 'b5', name: 'Web Master', icon: '🌐', color: '#8b5cf6' },
+];
 
 export default function AdminBadges() {
   const [loading, setLoading] = useState(true);
-  const [awardedList, setAwardedList] = useState(mockStudentBadges);
+  const [students, setStudents] = useState([]);
+  const [awardedList, setAwardedList] = useState([]);
 
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 700); return () => clearTimeout(t); }, []);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const studSnap = await getDocs(collection(db, 'students'));
+        setStudents(studSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        
+        const awSnap = await getDocs(collection(db, 'awardedBadges'));
+        setAwardedList(awSnap.docs.map(d => d.data()));
+      } catch (err) {
+        toast.error('Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
-  const awardBadge = (studentId, badgeId) => {
+  const awardBadge = async (studentId, badgeId) => {
     const already = awardedList.find(a => a.studentId === studentId && a.badgeId === badgeId);
     if (already) { toast.error('Badge already awarded'); return; }
-    setAwardedList(p => [...p, { studentId, badgeId, awardedDate: new Date().toISOString().slice(0, 10), examScore: 85 }]);
-    const badge = mockBadges.find(b => b.id === badgeId);
-    toast.success(`${badge?.name} awarded!`);
+    try {
+      const id = `${studentId}_${badgeId}`;
+      const payload = { studentId, badgeId, awardedDate: new Date().toISOString().slice(0, 10) };
+      await setDoc(doc(db, 'awardedBadges', id), payload);
+      setAwardedList(p => [...p, payload]);
+      const badge = BADGES.find(b => b.id === badgeId);
+      toast.success(`${badge?.name} awarded!`);
+    } catch (e) {
+      toast.error('Error awarding badge');
+    }
   };
 
   if (loading) return <LoadingSkeleton type="card" />;
 
-  const eligibleStudents = mockStudents.filter(s => {
-    const results = mockResults.filter(r => r.studentId === s.id && parseFloat(r.percentage) >= 80);
-    return results.length > 0;
-  });
+  const eligibleStudents = students.filter(s => (parseFloat(s.btech) || 0) >= 80);
 
   return (
     <div className="space-y-6">
@@ -47,7 +76,7 @@ export default function AdminBadges() {
       <div>
         <h3 className="font-semibold text-white mb-3">Badge Catalog</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {mockBadges.map((badge, i) => (
+          {BADGES.map((badge, i) => (
             <motion.div key={badge.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}
               className="rounded-2xl p-4 text-center"
               style={{ background: `${badge.color}10`, border: `1px solid ${badge.color}30` }}>
@@ -63,9 +92,9 @@ export default function AdminBadges() {
       <div>
         <h3 className="font-semibold text-white mb-3">Student Badge Assignments</h3>
         <div className="space-y-3">
-          {mockStudents.slice(0, 6).map((student, i) => {
+          {students.slice(0, 10).map((student, i) => {
             const studentAwards = awardedList.filter(a => a.studentId === student.id);
-            const studentBadges = studentAwards.map(a => mockBadges.find(b => b.id === a.badgeId)).filter(Boolean);
+            const studentBadges = studentAwards.map(a => BADGES.find(b => b.id === a.badgeId)).filter(Boolean);
             const isEligible = eligibleStudents.find(e => e.id === student.id);
 
             return (
@@ -77,8 +106,8 @@ export default function AdminBadges() {
                   {generateInitials(student.name)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-white text-sm">{student.name}</p>
-                  <p className="text-xs" style={{ color: '#71717a' }}>{student.rollNumber} · CGPA: {student.cgpa}</p>
+                  <p className="font-medium text-white text-sm">{student.name || student.rollNo || 'Student'}</p>
+                  <p className="text-xs" style={{ color: '#71717a' }}>{student.rollNo} · B.Tech: {student.btech || 0}%</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {studentBadges.map(b => (
@@ -98,7 +127,7 @@ export default function AdminBadges() {
                     </button>
                     <div className="absolute right-0 top-full mt-1 w-44 rounded-xl overflow-hidden z-10 hidden group-hover:block"
                       style={{ background: '#1c1917', border: '1px solid #3f3f46', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-                      {mockBadges.slice(0, 5).map(b => (
+                      {BADGES.map(b => (
                         <button key={b.id} onClick={() => awardBadge(student.id, b.id)}
                           className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 transition-all text-left">
                           <span>{b.icon}</span>

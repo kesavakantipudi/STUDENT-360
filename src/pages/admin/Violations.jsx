@@ -2,35 +2,66 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Edit2, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { mockViolations, mockStudents } from '../../data/mockData';
 import { formatDate, getSeverityClass, getStatusClass } from '../../utils/helpers';
 import toast from 'react-hot-toast';
+import { collection, getDocs, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 const SEVERITIES = ['Low', 'Medium', 'High'];
 const PIE_COLORS = { Low: '#10b981', Medium: '#f59e0b', High: '#ef4444' };
 
 export default function AdminViolations() {
   const [loading, setLoading] = useState(true);
-  const [violations, setViolations] = useState(mockViolations);
+  const [violations, setViolations] = useState([]);
   const [filter, setFilter] = useState('All');
   const [modalOpen, setModalOpen] = useState(false);
   const [editViolation, setEditViolation] = useState(null);
 
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 700); return () => clearTimeout(t); }, []);
+  useEffect(() => {
+    const fetchViolations = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'violations'));
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setViolations(list);
+      } catch (err) {
+        toast.error("Failed to load violations");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchViolations();
+  }, []);
 
   const filtered = violations.filter(v => filter === 'All' || v.severity === filter);
-  const handleDelete = (id) => { setViolations(p => p.filter(v => v.id !== id)); toast.success('Violation removed'); };
-
-  const handleSave = (data) => {
-    if (editViolation?.id) {
-      setViolations(p => p.map(v => v.id === editViolation.id ? { ...v, ...data } : v));
-      toast.success('Violation updated');
-    } else {
-      const student = mockStudents.find(s => s.rollNumber === data.rollNumber) || mockStudents[0];
-      setViolations(p => [...p, { ...data, id: `v${Date.now()}`, studentName: student.name, studentId: student.id }]);
-      toast.success('Violation added');
+  
+  const handleDelete = async (id) => { 
+    try {
+      await deleteDoc(doc(db, 'violations', id));
+      setViolations(p => p.filter(v => v.id !== id)); 
+      toast.success('Violation removed'); 
+    } catch (err) {
+      toast.error('Failed to delete');
     }
-    setModalOpen(false); setEditViolation(null);
+  };
+
+  const handleSave = async (data) => {
+    try {
+      if (editViolation?.id) {
+        await updateDoc(doc(db, 'violations', editViolation.id), data);
+        setViolations(p => p.map(v => v.id === editViolation.id ? { ...v, ...data } : v));
+        toast.success('Violation updated');
+      } else {
+        const newId = `v_${Date.now()}`;
+        // Since we don't have mockStudents, we just use rollNumber as the student identifier if name isn't provided
+        const finalData = { ...data, studentName: data.rollNumber || 'Unknown Student' };
+        await setDoc(doc(db, 'violations', newId), finalData);
+        setViolations(p => [...p, { ...finalData, id: newId }]);
+        toast.success('Violation added');
+      }
+      setModalOpen(false); setEditViolation(null);
+    } catch (err) {
+      toast.error("Failed to save");
+    }
   };
 
   if (loading) return <LoadingSkeleton type="table" rows={5} />;

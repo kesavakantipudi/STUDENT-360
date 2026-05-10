@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Bell, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { generateInitials, getAvatarColor, formatDate } from '../../utils/helpers';
-import { mockNotifications } from '../../data/mockData';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 export default function TopNav({ title = 'Dashboard' }) {
   const { user } = useAuth();
@@ -15,7 +16,24 @@ export default function TopNav({ title = 'Dashboard' }) {
   const initials   = generateInitials(user?.name || '');
   const avatarBg   = getAvatarColor(user?.name || '');
   const rollNo     = user?.email ? user.email.split('@')[0].toUpperCase() : '';
-  const unread     = mockNotifications.filter(n => !n.read).length;
+  const [notifications, setNotifications] = useState([]);
+
+  // Fetch notifications
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'notifications'));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        setNotifications(list.slice(0, 5)); // Keep latest 5
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchNotifs();
+  }, []);
+
+  const unread     = notifications.filter(n => !n.read).length;
   const typeColor  = t => ({ info: '#f97316', success: '#10b981', achievement: '#f59e0b', warning: '#f97316', reminder: '#06b6d4' }[t] || '#f97316');
 
   return (
@@ -109,7 +127,7 @@ export default function TopNav({ title = 'Dashboard' }) {
 
                   {/* Items */}
                   <div style={{ maxHeight: 360, overflowY: 'auto' }}>
-                    {mockNotifications.map(n => (
+                    {notifications.map(n => (
                       <div key={n.id} style={{ display: 'flex', gap: '0.75rem', padding: '0.75rem 1.125rem', borderBottom: '1px solid #27272a', opacity: n.read ? 0.55 : 1, cursor: 'pointer', transition: 'background 0.12s' }}
                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}

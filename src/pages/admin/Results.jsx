@@ -1,17 +1,30 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { mockResults, mockStudents } from '../../data/mockData';
-import { formatDate, getGradeColor } from '../../utils/helpers';
-import { generateInitials, getAvatarColor } from '../../utils/helpers';
+import { formatDate, getGradeColor, generateInitials, getAvatarColor, exportToCSV } from '../../utils/helpers';
 import { Download, CheckCircle } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { exportToCSV } from '../../utils/helpers';
 import toast from 'react-hot-toast';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 export default function AdminResults() {
   const [loading, setLoading] = useState(true);
-  const [results] = useState(mockResults);
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 700); return () => clearTimeout(t); }, []);
+  const [results, setResults] = useState([]);
+
+  useEffect(() => {
+    const fetchResults = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'results'));
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setResults(list);
+      } catch (err) {
+        toast.error("Failed to load results");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchResults();
+  }, []);
 
   if (loading) return <LoadingSkeleton type="table" rows={5} />;
 
@@ -47,8 +60,9 @@ export default function AdminResults() {
               </tr>
             </thead>
             <tbody>
-              {results.map((r, i) => {
-                const student = mockStudents.find(s => s.id === r.studentId);
+              {results.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-16 text-base" style={{ color: '#71717a' }}>No results found</td></tr>
+              ) : results.map((r, i) => {
                 const color = getGradeColor(r.grade);
                 return (
                   <motion.tr key={r.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
@@ -56,10 +70,10 @@ export default function AdminResults() {
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                          style={{ background: getAvatarColor(student?.name || '') }}>
-                          {generateInitials(student?.name || '?')}
+                          style={{ background: getAvatarColor(r.studentName || '') }}>
+                          {generateInitials(r.studentName || '?')}
                         </div>
-                        <span className="text-sm font-semibold text-white">{student?.name || 'Unknown'}</span>
+                        <span className="text-sm font-semibold text-white">{r.studentName || 'Unknown'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-5 text-sm" style={{ color: '#a1a1aa' }}>{r.subject}</td>

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, BookOpen, Code, Edit3, Save, X, Trophy, Star } from 'lucide-react';
+import { User, BookOpen, Code, Edit3, Save, X, Trophy, Star, ExternalLink } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
+import { ErrorState } from '../../components/shared/ErrorState';
 import { generateInitials, getAvatarColor } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -13,7 +16,10 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [studentData, setStudentData] = useState(null);
   const [codingProfiles, setCodingProfiles] = useState({ leetcode: null, gfg: null, codechef: null, hackerrank: null });
-  const [form, setForm] = useState({ phone: '', githubUsername: '' });
+  const [form, setForm] = useState({ phone: '', githubUrl: '' });
+  const [githubConnected, setGithubConnected] = useState(false);
+  const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!rollNo) return;
@@ -25,11 +31,11 @@ export default function ProfilePage() {
         const safeFetch = async (url) => {
           try {
             const res = await fetch(url, { method: 'POST', headers, body });
-            if (!res.ok) return null;
+            if (!res.ok) throw new Error('API Error');
             return await res.json();
           } catch (e) {
             console.error('Fetch error for', url, e);
-            return null;
+            throw e;
           }
         };
 
@@ -43,22 +49,76 @@ export default function ProfilePage() {
 
         if (studentJson) setStudentData(studentJson);
         setCodingProfiles({ leetcode: lc, gfg: gfg, codechef: cc, hackerrank: hr });
-        if (studentJson) setForm({ phone: studentJson.mobile || '', githubUsername: '' });
+
+        // Fetch Firestore profile data
+        let firestoreGithubUrl = '';
+        if (user?.uid) {
+          const docRef = doc(db, 'students', user.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            firestoreGithubUrl = data.githubUrl || '';
+            if (firestoreGithubUrl) setGithubConnected(true);
+          }
+        }
+
+        if (studentJson) setForm({ phone: studentJson.mobile || '', githubUrl: firestoreGithubUrl });
       } catch (err) {
         console.error("Profile fetch error:", err);
+        setError(true);
       } finally {
         setLoading(false);
       }
     };
     fetchProfileData();
-  }, [rollNo]);
+  }, [rollNo, retryCount]);
+
+  const handleRetry = () => {
+    setLoading(true);
+    setError(false);
+    setRetryCount(c => c + 1);
+  };
+
+  if (error) return <ErrorState message="Unable to fetch student profile. Please check your connection and try again." onRetry={handleRetry} />;
+
+  if (loading) return <LoadingSkeleton type="list" rows={4} />;
 
   const initials = generateInitials(studentData?.first_name || user?.name || '');
   const avatarColor = getAvatarColor(studentData?.first_name || user?.name || '');
 
-  const handleSave = () => { setEditing(false); toast.success('Profile updated successfully!'); };
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      if (user?.uid) {
+        let githubUsername = '';
+        // Extract username if URL is provided
+        if (form.githubUrl) {
+          const match = form.githubUrl.match(/github\.com\/([a-zA-Z0-9-]+)\/?/);
+          if (match && match[1]) {
+            githubUsername = match[1];
+          } else {
+            toast.error('Invalid GitHub URL. Must be in format https://github.com/username');
+            setLoading(false);
+            return;
+          }
+        }
 
-  if (loading) return <LoadingSkeleton type="list" rows={4} />;
+        await setDoc(doc(db, 'students', user.uid), {
+          githubUrl: form.githubUrl,
+          githubUsername: githubUsername
+        }, { merge: true });
+        
+        setGithubConnected(!!form.githubUrl);
+        toast.success('Profile updated successfully!');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update profile');
+    } finally {
+      setEditing(false);
+      setLoading(false);
+    }
+  };
 
   const { leetcode, gfg, codechef, hackerrank } = codingProfiles;
 
@@ -161,6 +221,60 @@ export default function ProfilePage() {
             <InfoRow label="College" value={studentData?.college} />
             <InfoRow label="Department" value={studentData?.branch?.join(', ')} />
             <InfoRow label="Passout Year" value={studentData?.passout_year} />
+          </div>
+        </div>
+      </div>
+
+      {/* Integrations Section */}
+      <div className="rounded-2xl p-7" style={{ background: '#121212', border: '1px solid #27272a' }}>
+        <h3 className="font-bold text-base text-white mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255, 255, 255, 0.1)' }}>
+              <Code size={16} style={{ color: '#ffffff' }} />
+            </div>
+            Integrations
+          </div>
+          {githubConnected && !editing && (
+            <span className="text-xs px-2.5 py-1 rounded-md font-semibold flex items-center gap-1.5" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Connected
+            </span>
+          )}
+        </h3>
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-2">
+            <div>
+              <p className="text-sm font-medium text-white">GitHub Profile</p>
+              <p className="text-xs mt-0.5" style={{ color: '#71717a' }}>Link your GitHub account for advanced analytics</p>
+            </div>
+            <div className="w-full sm:w-1/2">
+              {editing ? (
+                <input
+                  type="url"
+                  placeholder="https://github.com/username"
+                  value={form.githubUrl}
+                  onChange={(e) => setForm({ ...form, githubUrl: e.target.value })}
+                  className="w-full text-sm text-white px-4 py-2.5 rounded-xl outline-none"
+                  style={{ background: '#0a0a0a', border: '1px solid #3f3f46', borderColor: form.githubUrl ? '#f97316' : '#27272a' }}
+                />
+              ) : (
+                <div className="text-sm font-medium text-right w-full flex justify-end">
+                  {form.githubUrl ? (
+                    <a href={form.githubUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:underline" style={{ color: '#f97316' }}>
+                      {form.githubUrl.replace('https://', '')} <ExternalLink size={12} />
+                    </a>
+                  ) : (
+                    <button 
+                      onClick={() => setEditing(true)}
+                      className="px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all hover:scale-105" 
+                      style={{ background: '#f97316', color: 'white', border: '1px solid #ea580c' }}
+                    >
+                      Connect GitHub
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

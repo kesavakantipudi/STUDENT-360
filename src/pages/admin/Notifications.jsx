@@ -2,26 +2,49 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Plus, Send, X, Save } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { mockNotifications } from '../../data/mockData';
 import { formatDate } from '../../utils/helpers';
 import toast from 'react-hot-toast';
+import { collection, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 const TYPE_COLORS = { info: '#f97316', success: '#10b981', achievement: '#f59e0b', warning: '#f97316', reminder: '#06b6d4' };
 
 export default function AdminNotifications() {
   const [loading, setLoading] = useState(true);
-  const [notifs, setNotifs] = useState(mockNotifications);
+  const [notifs, setNotifs] = useState([]);
   const [composeOpen, setComposeOpen] = useState(false);
   const [form, setForm] = useState({ title: '', message: '', type: 'info' });
 
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'notifications'));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Sort by date or id descending roughly
+        list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        setNotifs(list);
+      } catch (err) {
+        toast.error('Failed to load notifications');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchNotifs();
+  }, []);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!form.title || !form.message) { toast.error('Fill all fields'); return; }
-    setNotifs(p => [{ id: Date.now().toString(), ...form, date: new Date().toISOString().slice(0, 10), read: false }, ...p]);
-    toast.success('Notification sent to all students!');
-    setComposeOpen(false);
-    setForm({ title: '', message: '', type: 'info' });
+    try {
+      const newId = `notif_${Date.now()}`;
+      const payload = { ...form, date: new Date().toISOString().slice(0, 10), read: false };
+      await setDoc(doc(db, 'notifications', newId), payload);
+      setNotifs(p => [{ id: newId, ...payload }, ...p]);
+      toast.success('Notification sent to all students!');
+      setComposeOpen(false);
+      setForm({ title: '', message: '', type: 'info' });
+    } catch (err) {
+      toast.error('Failed to send notification');
+    }
   };
 
   if (loading) return <LoadingSkeleton type="list" rows={5} />;

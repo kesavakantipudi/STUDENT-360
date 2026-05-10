@@ -2,43 +2,85 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Edit2, Trash2, Download, X, Save } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { mockStudents } from '../../data/mockData';
-import { generateInitials, getAvatarColor, exportToCSV, formatDate } from '../../utils/helpers';
+import { generateInitials, getAvatarColor, exportToCSV } from '../../utils/helpers';
 import toast from 'react-hot-toast';
-
-const DEPTS = ['All', 'Computer Science', 'Information Technology', 'Electronics', 'Mechanical'];
+import { collection, getDocs, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 export default function AdminStudents() {
   const [loading, setLoading] = useState(true);
-  const [students, setStudents] = useState(mockStudents);
+  const [students, setStudents] = useState([]);
   const [search, setSearch] = useState('');
-  const [dept, setDept] = useState('All');
+  const [selectedCollege, setSelectedCollege] = useState('All');
+  const [selectedBranch, setSelectedBranch] = useState('All');
+  const [colleges, setColleges] = useState(['All']);
+  const [branches, setBranches] = useState(['All']);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const PER_PAGE = 6;
 
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 800); return () => clearTimeout(t); }, []);
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'students'));
+        const studentsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setStudents(studentsList);
+        
+        // Extract unique filters
+        const uniqueColleges = ['All', ...new Set(studentsList.map(s => s.college).filter(Boolean))];
+        const uniqueBranches = ['All', ...new Set(studentsList.flatMap(s => s.branch || []).filter(Boolean))];
+        setColleges(uniqueColleges);
+        setBranches(uniqueBranches);
+      } catch (error) {
+        console.error("Error fetching students:", error);
+        toast.error('Failed to load students');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStudents();
+  }, []);
 
-  const filtered = students.filter(s =>
-    (dept === 'All' || s.department === dept) &&
-    (s.name.toLowerCase().includes(search.toLowerCase()) || s.rollNumber.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = students.filter(s => {
+    const matchesSearch = (s.name || '').toLowerCase().includes(search.toLowerCase()) || 
+                          (s.rollNo || '').toLowerCase().includes(search.toLowerCase());
+    const matchesCollege = selectedCollege === 'All' || s.college === selectedCollege;
+    const matchesBranch = selectedBranch === 'All' || (s.branch && s.branch.includes(selectedBranch));
+    return matchesSearch && matchesCollege && matchesBranch;
+  });
+
   const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
 
-  const handleDelete = (id) => { setStudents(prev => prev.filter(s => s.id !== id)); setDeleteConfirm(null); toast.success('Student removed'); };
-
-  const handleSave = (data) => {
-    if (editStudent?.id) {
-      setStudents(prev => prev.map(s => s.id === editStudent.id ? { ...s, ...data } : s));
-      toast.success('Student updated');
-    } else {
-      setStudents(prev => [...prev, { ...data, id: `s${Date.now()}`, status: 'active', joinDate: new Date().toISOString().slice(0, 10), skills: [] }]);
-      toast.success('Student added');
+  const handleDelete = async (id) => { 
+    try {
+      await deleteDoc(doc(db, 'students', id));
+      setStudents(prev => prev.filter(s => s.id !== id)); 
+      setDeleteConfirm(null); 
+      toast.success('Student removed'); 
+    } catch (err) {
+      toast.error('Failed to delete student');
     }
-    setModalOpen(false); setEditStudent(null);
+  };
+
+  const handleSave = async (data) => {
+    try {
+      if (editStudent?.id) {
+        await updateDoc(doc(db, 'students', editStudent.id), data);
+        setStudents(prev => prev.map(s => s.id === editStudent.id ? { ...s, ...data } : s));
+        toast.success('Student updated');
+      } else {
+        const newRoll = data.rollNo || `temp_${Date.now()}`;
+        await setDoc(doc(db, 'students', newRoll), data);
+        setStudents(prev => [{ ...data, id: newRoll }, ...prev]);
+        toast.success('Student added');
+      }
+      setModalOpen(false); setEditStudent(null);
+    } catch (err) {
+      toast.error('Failed to save student');
+    }
   };
 
   if (loading) return <LoadingSkeleton type="table" rows={6} />;
@@ -61,23 +103,23 @@ export default function AdminStudents() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
-        <div style={{ position: 'relative', minWidth: 240 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search by name or roll number…"
-            className="input" style={{ paddingLeft: 36 }} />
+            className="input w-full" style={{ paddingLeft: 36, background: '#0a0a0a', border: '1px solid #27272a' }} />
         </div>
-        <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
-          {DEPTS.map(d => (
-            <button key={d} onClick={() => { setDept(d); setPage(1); }}
-              className="btn"
-              style={dept === d
-                ? { background: 'rgba(249, 115, 22,0.15)', color: '#fdba74', border: '1px solid rgba(249, 115, 22,0.35)', padding: '0.375rem 0.75rem', fontSize: '0.8125rem' }
-                : { background: 'transparent', color: '#71717a', border: '1px solid #27272a', padding: '0.375rem 0.75rem', fontSize: '0.8125rem' }
-              }>{d}</button>
-          ))}
-        </div>
+        
+        <select value={selectedCollege} onChange={e => { setSelectedCollege(e.target.value); setPage(1); }}
+          className="input" style={{ minWidth: 150, background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
+          {colleges.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+
+        <select value={selectedBranch} onChange={e => { setSelectedBranch(e.target.value); setPage(1); }}
+          className="input" style={{ minWidth: 150, background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
+          {branches.map(b => <option key={b} value={b}>{b}</option>)}
+        </select>
       </div>
 
       {/* Table */}
@@ -86,32 +128,32 @@ export default function AdminStudents() {
           <table className="w-full">
             <thead>
               <tr>
-                {['Student', 'Roll No.', 'Department', 'Year', 'CGPA', 'Status', 'Actions'].map(h => (
-                  <th key={h}>{h}</th>
+                {['Student', 'Roll No.', 'College', 'Branch', 'Backlogs', 'B.Tech %', 'Actions'].map(h => (
+                  <th key={h} className="text-left py-3 px-4" style={{ color: '#71717a', fontWeight: 600, fontSize: '0.8125rem' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               <AnimatePresence>
                 {paged.map((s, i) => (
-                  <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: i * 0.04 }}>
-                    <td>
+                  <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: i * 0.04 }} className="border-b border-zinc-800/50">
+                    <td className="py-4 px-4">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ width: 34, height: 34, borderRadius: '50%', background: getAvatarColor(s.name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6875rem', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                          {generateInitials(s.name)}
+                        <div style={{ width: 34, height: 34, borderRadius: '50%', background: getAvatarColor(s.name || s.rollNo), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6875rem', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                          {generateInitials(s.name || s.rollNo || 'S')}
                         </div>
                         <div>
-                          <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#fafafa' }}>{s.name}</p>
-                          <p style={{ fontSize: '0.75rem', color: '#71717a', marginTop: 2 }}>{s.email}</p>
+                          <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#fafafa' }}>{s.name || 'Unknown'}</p>
+                          <p style={{ fontSize: '0.75rem', color: '#71717a', marginTop: 2 }}>Passout: {s.passoutYear || 'N/A'}</p>
                         </div>
                       </div>
                     </td>
-                    <td>{s.rollNumber}</td>
-                    <td>{s.department}</td>
-                    <td>Year {s.year}</td>
-                    <td><span style={{ fontWeight: 700, color: s.cgpa >= 9 ? '#10b981' : s.cgpa >= 8 ? '#f97316' : '#f59e0b' }}>{s.cgpa}</span></td>
-                    <td><span className={s.status === 'active' ? 'status-active' : 'status-pending'}>{s.status}</span></td>
-                    <td>
+                    <td className="py-4 px-4">{s.rollNo}</td>
+                    <td className="py-4 px-4">{s.college || 'N/A'}</td>
+                    <td className="py-4 px-4">{s.branch ? s.branch.join(', ') : 'N/A'}</td>
+                    <td className="py-4 px-4"><span style={{ color: s.backlogs > 0 ? '#ef4444' : '#10b981', fontWeight: 600 }}>{s.backlogs || 0}</span></td>
+                    <td className="py-4 px-4"><span style={{ fontWeight: 700, color: '#f59e0b' }}>{s.btech || '0'}%</span></td>
+                    <td className="py-4 px-4">
                       <div style={{ display: 'flex', gap: '0.375rem' }}>
                         <button onClick={() => { setEditStudent(s); setModalOpen(true); }}
                           style={{ width: 30, height: 30, borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(249, 115, 22,0.1)', color: '#fdba74', border: 'none', cursor: 'pointer' }}><Edit2 size={13} /></button>

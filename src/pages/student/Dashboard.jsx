@@ -4,9 +4,11 @@ import { BookOpen, Calendar, Trophy, TrendingUp, Star, Target, Award, ChevronRig
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar } from 'recharts';
 import StatCard from '../../components/shared/StatCard';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { mockStudents, mockExams, mockPerformanceData, mockScoreData, mockStudentBadges } from '../../data/mockData';
+import { ErrorState } from '../../components/shared/ErrorState';
 import { formatDate, getDaysUntil, getGradeColor } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 const ChartTip = ({ active, payload, label }) =>
   active && payload?.length ? (
@@ -24,9 +26,7 @@ const radarData = [
 
 const activityLog = [
   { icon: Award, text: 'Earned "DSA Master" badge', time: '2d ago', color: '#f59e0b' },
-  { icon: BookOpen, text: 'OS result published — 88/100', time: '3d ago', color: '#10b981' },
-  { icon: Calendar, text: 'CN result published — 65/75', time: '5d ago', color: '#f97316' },
-  { icon: Star, text: 'DSA exam scheduled May 20', time: '1w ago', color: '#f59e0b' },
+  { icon: Award, text: 'Earned "Python Expert" badge', time: '4d ago', color: '#10b981' },
 ];
 
 export default function StudentDashboard() {
@@ -35,25 +35,34 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [studentData, setStudentData] = useState(null);
   const [dashboardStats, setDashboardStats] = useState(null);
+  const [upcomingExams, setUpcomingExams] = useState([]);
+  const [myResults, setMyResults] = useState([]);
+  const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
-  const upcomingExams  = mockExams.filter(e => e.status === 'upcoming').slice(0, 3);
-  const studentBadges  = mockStudentBadges.filter(sb => sb.studentId === 's001');
+  const studentBadges  = [];
+  const performanceData = [
+    { year: '2021', cgpa: 7.8 }, { year: '2022', cgpa: 8.1 },
+    { year: '2023', cgpa: 8.4 }, { year: '2024', cgpa: 8.2 },
+    { year: '2025', cgpa: 8.6 }, { year: '2026', cgpa: 8.8 }
+  ];
 
   useEffect(() => {
     if (!rollNo) return;
     const fetchData = async () => {
       try {
+        setError(false);
         const body = JSON.stringify({ roll_no: rollNo });
         const headers = { 'Content-Type': 'application/json' };
 
         const safeFetch = async (url) => {
           try {
             const res = await fetch(url, { method: 'POST', headers, body });
-            if (!res.ok) return null;
+            if (!res.ok) throw new Error('API Error');
             return await res.json();
           } catch (e) {
             console.error('Fetch error for', url, e);
-            return null;
+            throw e; // Throw to the outer catch block
           }
         };
 
@@ -62,16 +71,42 @@ export default function StudentDashboard() {
           safeFetch('/api/get-student-problems-count-dashboard')
         ]);
 
+        // Fetch upcoming exams from Firestore
+        const querySnapshot = await getDocs(collection(db, 'exams'));
+        const examsData = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.status === 'upcoming' || data.status === 'scheduled') {
+            examsData.push({ id: doc.id, ...data });
+          }
+        });
+        examsData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        setUpcomingExams(examsData.slice(0, 3));
+
+        const resSnap = await getDocs(collection(db, 'results'));
+        const resArr = resSnap.docs.map(d => d.data());
+        const userRes = resArr.filter(r => r.rollNo === rollNo);
+        setMyResults(userRes);
+
         if (studentJson) setStudentData(studentJson);
         if (statsJson) setDashboardStats(statsJson);
       } catch (err) {
         console.error("Error fetching dashboard data", err);
+        setError(true);
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [rollNo]);
+  }, [rollNo, retryCount]);
+
+  const handleRetry = () => {
+    setLoading(true);
+    setError(false);
+    setRetryCount(c => c + 1);
+  };
+
+  if (error) return <ErrorState message="Unable to fetch dashboard data. Please check your connection and try again." onRetry={handleRetry} />;
 
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -135,12 +170,12 @@ export default function StudentDashboard() {
         {/* CGPA Trend */}
         <div className="chart-card">
           <div className="chart-header">
-            <span className="chart-title">CGPA Trend</span>
+            <span className="chart-title">Yearly CGPA Trend</span>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={mockPerformanceData} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
+            <LineChart data={performanceData} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis dataKey="month" stroke="#334155" tick={{ fontSize: 11, fill: '#71717a' }} />
+              <XAxis dataKey="year" stroke="#334155" tick={{ fontSize: 11, fill: '#71717a' }} />
               <YAxis domain={[7.5, 10]} stroke="#334155" tick={{ fontSize: 11, fill: '#71717a' }} />
               <Tooltip content={<ChartTip />} />
               <Line type="monotone" dataKey="cgpa" name="CGPA" stroke="#f97316" strokeWidth={2} dot={{ fill: '#f97316', r: 3 }} activeDot={{ r: 5 }} />
@@ -216,8 +251,8 @@ export default function StudentDashboard() {
       <div className="card">
         <span className="card-title" style={{ display: 'block', marginBottom: '1.25rem' }}>Subject Performance</span>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.875rem' }}>
-          {mockScoreData.map((s, i) => {
-            const pct = Math.round((s.marks / s.total) * 100);
+          {myResults.length === 0 ? <p style={{ color: '#71717a' }}>No results published yet.</p> : myResults.slice(0, 6).map((s, i) => {
+            const pct = Math.round((parseFloat(s.marks) / parseFloat(s.totalMarks)) * 100);
             const color = getGradeColor(s.grade);
             return (
               <motion.div key={s.subject} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.06 }}

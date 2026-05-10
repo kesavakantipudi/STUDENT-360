@@ -3,12 +3,12 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAFldBP95ODLxgC-IZEctBP2bSZDdlIGp0",
-    authDomain: "student-360-962c4.firebaseapp.com",
-    projectId: "student-360-962c4",
-    storageBucket: "student-360-962c4.firebasestorage.app",
-    messagingSenderId: "127075135949",
-    appId: "1:127075135949:web:0d580d63198ec1268ad484"
+  apiKey: "AIzaSyBFACYAvfLRnTlqX4lUtMfCWnV05pEh8-s",
+  authDomain: "student-360-ccb4e.firebaseapp.com",
+  projectId: "student-360-ccb4e",
+  storageBucket: "student-360-ccb4e.firebasestorage.app",
+  messagingSenderId: "999131718001",
+  appId: "1:999131718001:web:f2cb800591ab8c459f96d0"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -16,3 +16,5 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 export const db = getFirestore(app);
+
+

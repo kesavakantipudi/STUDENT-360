@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { demoUsers } from '../data/mockData';
-
+const demoUsers = {
+  student: { email: 'student@s360.edu', password: 'password123' },
+  admin: { email: 'admin@s360.edu', password: 'admin123' }
+};
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {

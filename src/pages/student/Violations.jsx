@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, Shield, CheckCircle, Clock } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
+import { ErrorState } from '../../components/shared/ErrorState';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ViolationsPage() {
@@ -9,22 +10,35 @@ export default function ViolationsPage() {
   const rollNo = user?.email ? user.email.split('@')[0].toUpperCase() : '';
   const [loading, setLoading] = useState(true);
   const [violationsCount, setViolationsCount] = useState(0);
+  const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!rollNo) return;
     const fetchViolations = async () => {
       try {
+        setError(false);
         const res = await fetch(`/api/violations-count/${rollNo}`);
+        if (!res.ok) throw new Error('API Error');
         const data = await res.json();
         setViolationsCount(data.count || 0);
       } catch (err) {
         console.error("Error fetching violations:", err);
+        setError(true);
       } finally {
         setLoading(false);
       }
     };
     fetchViolations();
-  }, [rollNo]);
+  }, [rollNo, retryCount]);
+
+  const handleRetry = () => {
+    setLoading(true);
+    setError(false);
+    setRetryCount(c => c + 1);
+  };
+
+  if (error) return <ErrorState message="Unable to fetch violation records. Please check your connection and try again." onRetry={handleRetry} />;
 
   if (loading) return <LoadingSkeleton type="list" rows={3} />;
 

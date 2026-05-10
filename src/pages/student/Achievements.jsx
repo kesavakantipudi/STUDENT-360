@@ -2,8 +2,18 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Lock, Star, Zap } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { mockBadges, mockStudentBadges } from '../../data/mockData';
 import { formatDate } from '../../utils/helpers';
+import { useAuth } from '../../context/AuthContext';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
+
+const BADGES = [
+  { id: 'b1', name: 'Algorithm Pro', icon: '🧠', color: '#f59e0b', description: 'Master of algorithms', criteria: 'Score 80%+ in DSA exam' },
+  { id: 'b2', name: 'Code Ninja', icon: '🥷', color: '#10b981', description: 'Fast and flawless coding', criteria: 'Score 80%+ in WT exam' },
+  { id: 'b3', name: 'Top Performer', icon: '⭐', color: '#f97316', description: 'Overall top performance', criteria: 'Score 80%+ in any exam' },
+  { id: 'b4', name: 'Database Guru', icon: '🗄️', color: '#06b6d4', description: 'Expert in SQL & NoSQL', criteria: 'Score 80%+ in DBMS exam' },
+  { id: 'b5', name: 'Web Master', icon: '🌐', color: '#8b5cf6', description: 'Frontend and backend master', criteria: 'Score 80%+ in CN exam' },
+];
 
 function BadgeCard({ badge, earned, earnedData, index }) {
   return (
@@ -63,10 +73,34 @@ function BadgeCard({ badge, earned, earnedData, index }) {
 }
 
 export default function AchievementsPage() {
+  const { user } = useAuth();
+  const rollNo = user?.email ? user.email.split('@')[0].toUpperCase() : '';
   const [loading, setLoading] = useState(true);
-  const studentBadgeIds = mockStudentBadges.filter(sb => sb.studentId === 's001');
+  const [studentBadgeIds, setStudentBadgeIds] = useState([]);
+
+  useEffect(() => {
+    if (!rollNo) return;
+    const fetchBadges = async () => {
+      try {
+        // Find student doc to get internal ID, or just query by rollNo if badge collection uses rollNo.
+        // Wait, AdminBadges uses student.id for awarding. Let's just query by studentId for all students and filter by our own id or rollNo.
+        const studSnap = await getDocs(query(collection(db, 'students'), where('rollNo', '==', rollNo)));
+        if (!studSnap.empty) {
+          const studentId = studSnap.docs[0].id;
+          const awSnap = await getDocs(query(collection(db, 'awardedBadges'), where('studentId', '==', studentId)));
+          setStudentBadgeIds(awSnap.docs.map(d => d.data()));
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBadges();
+  }, [rollNo]);
+
   const earnedIds = new Set(studentBadgeIds.map(sb => sb.badgeId));
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 700); return () => clearTimeout(t); }, []);
+
   if (loading) return <LoadingSkeleton type="card" />;
 
   return (
@@ -79,7 +113,7 @@ export default function AchievementsPage() {
         <div className="flex items-center gap-3 px-5 py-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.28)' }}>
           <Trophy size={18} style={{ color: '#f59e0b' }} />
           <span className="font-bold text-lg text-white">{earnedIds.size}</span>
-          <span className="text-sm font-medium" style={{ color: '#f59e0b' }}>/ {mockBadges.length} Earned</span>
+          <span className="text-sm font-medium" style={{ color: '#f59e0b' }}>/ {BADGES.length} Earned</span>
         </div>
       </div>
 
@@ -90,19 +124,19 @@ export default function AchievementsPage() {
             <Zap size={18} style={{ color: '#f59e0b' }} />
             <span className="font-semibold text-base text-white">Achievement Progress</span>
           </div>
-          <span className="text-lg font-bold" style={{ color: '#f59e0b' }}>{Math.round((earnedIds.size / mockBadges.length) * 100)}%</span>
+          <span className="text-lg font-bold" style={{ color: '#f59e0b' }}>{Math.round((earnedIds.size / BADGES.length) * 100) || 0}%</span>
         </div>
         <div className="h-4 rounded-full overflow-hidden" style={{ background: '#1c1917' }}>
           <motion.div
             initial={{ width: 0 }}
-            animate={{ width: `${(earnedIds.size / mockBadges.length) * 100}%` }}
+            animate={{ width: `${(earnedIds.size / BADGES.length) * 100}%` }}
             transition={{ duration: 1.2, ease: 'easeOut' }}
             className="h-full rounded-full"
             style={{ background: 'linear-gradient(90deg, #f59e0b, #f97316)' }}
           />
         </div>
         <p className="text-sm mt-3" style={{ color: '#71717a' }}>
-          {earnedIds.size} earned &middot; {mockBadges.length - earnedIds.size} remaining
+          {earnedIds.size} earned &middot; {BADGES.length - earnedIds.size} remaining
         </p>
       </div>
 
@@ -112,7 +146,7 @@ export default function AchievementsPage() {
             <Trophy size={18} style={{ color: '#f59e0b' }} /> Earned Badges
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-            {mockBadges.filter(b => earnedIds.has(b.id)).map((badge, i) => {
+            {BADGES.filter(b => earnedIds.has(b.id)).map((badge, i) => {
               const earnedData = studentBadgeIds.find(sb => sb.badgeId === badge.id);
               return <BadgeCard key={badge.id} badge={badge} earned={true} earnedData={earnedData} index={i} />;
             })}
@@ -125,7 +159,7 @@ export default function AchievementsPage() {
           <Lock size={18} style={{ color: '#475569' }} /> Locked Badges
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-          {mockBadges.filter(b => !earnedIds.has(b.id)).map((badge, i) => (
+          {BADGES.filter(b => !earnedIds.has(b.id)).map((badge, i) => (
             <BadgeCard key={badge.id} badge={badge} earned={false} index={i + earnedIds.size} />
           ))}
         </div>

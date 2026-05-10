@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { Award, CheckCircle, Download, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { mockResults, mockExams } from '../../data/mockData';
 import { formatDate, getGradeColor } from '../../utils/helpers';
+import { useAuth } from '../../context/AuthContext';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -18,9 +20,26 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function ResultsPage() {
+  const { user } = useAuth();
+  const rollNo = user?.email ? user.email.split('@')[0].toUpperCase() : '';
   const [loading, setLoading] = useState(true);
-  const myResults = mockResults.filter(r => r.studentId === 's001');
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 700); return () => clearTimeout(t); }, []);
+  const [myResults, setMyResults] = useState([]);
+
+  useEffect(() => {
+    if (!rollNo) return;
+    const fetchResults = async () => {
+      try {
+        const q = query(collection(db, 'results'), where('rollNo', '==', rollNo));
+        const snap = await getDocs(q);
+        setMyResults(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchResults();
+  }, [rollNo]);
 
   const chartData = myResults.map(r => ({ subject: r.subject.split(' ')[0], percentage: parseFloat(r.percentage) }));
   const avgScore = myResults.length ? (myResults.reduce((s, r) => s + parseFloat(r.percentage), 0) / myResults.length).toFixed(1) : 0;
@@ -76,7 +95,9 @@ export default function ResultsPage() {
 
       {/* Results cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {myResults.map((result, i) => {
+        {myResults.length === 0 ? (
+          <div className="col-span-full text-center py-12" style={{ color: '#71717a' }}>No results published yet</div>
+        ) : myResults.map((result, i) => {
           const color = getGradeColor(result.grade);
           return (
             <motion.div key={result.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}

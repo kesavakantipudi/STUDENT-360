@@ -3,8 +3,9 @@ import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, LineChart, Line } from 'recharts';
 import { TrendingUp, Users, Award, BookOpen, Download } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { mockDepartmentData, mockPerformanceData } from '../../data/mockData';
 import { exportToCSV } from '../../utils/helpers';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
@@ -26,6 +27,12 @@ const placementData = [
   { dept: 'Civil', readiness: 55, placed: 42 },
 ];
 
+const performanceData = [
+  { year: '2021', cgpa: 7.8 }, { year: '2022', cgpa: 8.1 },
+  { year: '2023', cgpa: 8.4 }, { year: '2024', cgpa: 8.2 },
+  { year: '2025', cgpa: 8.6 }, { year: '2026', cgpa: 8.8 }
+];
+
 const radarData = [
   { subject: 'DSA', CS: 85, IT: 72, ECE: 60 },
   { subject: 'DBMS', CS: 80, IT: 78, ECE: 55 },
@@ -37,8 +44,51 @@ const radarData = [
 
 export default function AdminReports() {
   const [loading, setLoading] = useState(true);
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 800); return () => clearTimeout(t); }, []);
+  const [students, setStudents] = useState([]);
+  const [exams, setExams] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const studSnap = await getDocs(collection(db, 'students'));
+        setStudents(studSnap.docs.map(d => d.data()));
+        const examSnap = await getDocs(collection(db, 'exams'));
+        setExams(examSnap.docs.map(d => d.data()));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   if (loading) return <LoadingSkeleton type="card" />;
+
+  // Dynamic calculations
+  const totalStudents = students.length;
+  const avgCgpa = students.length ? (students.reduce((sum, s) => sum + (parseFloat(s.btech) || 0), 0) / students.length).toFixed(2) : "0.00";
+  const placedStudents = students.filter(s => (parseFloat(s.btech) || 0) > 65).length;
+  const placementRate = totalStudents ? Math.round((placedStudents / totalStudents) * 100) : 0;
+
+  const departmentMap = {};
+  students.forEach(s => {
+    const branch = (s.branch && s.branch[0]) ? s.branch[0] : 'Unknown';
+    if (!departmentMap[branch]) {
+      departmentMap[branch] = { department: branch, students: 0, totalCgpa: 0, placed: 0 };
+    }
+    departmentMap[branch].students += 1;
+    departmentMap[branch].totalCgpa += parseFloat(s.btech) || 0;
+    if ((parseFloat(s.btech) || 0) > 65) departmentMap[branch].placed += 1;
+  });
+
+  const departmentData = Object.values(departmentMap).map(d => ({
+    department: d.department,
+    students: d.students,
+    avgCgpa: d.students ? (d.totalCgpa / d.students).toFixed(2) : 0,
+    placed: d.placed,
+    readiness: d.students ? Math.round((d.placed / d.students) * 100) : 0
+  })).sort((a, b) => b.students - a.students);
 
   return (
     <div className="space-y-8">
@@ -47,7 +97,7 @@ export default function AdminReports() {
           <h1 className="text-2xl font-bold text-white tracking-tight">Reports & Analytics</h1>
           <p className="text-base mt-1.5" style={{ color: '#71717a' }}>Institutional performance insights</p>
         </div>
-        <button onClick={() => exportToCSV(mockDepartmentData, 'department-report')}
+        <button onClick={() => exportToCSV(departmentData, 'department-report')}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
           style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
           <Download size={15} /> Export Report
@@ -57,10 +107,10 @@ export default function AdminReports() {
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
         {[
-          { label: 'Avg Institution CGPA', value: '8.48', color: '#f97316', icon: TrendingUp },
-          { label: 'Total Students', value: '410', color: '#10b981', icon: Users },
-          { label: 'Placement Rate', value: '78%', color: '#f59e0b', icon: Award },
-          { label: 'Exams Conducted', value: '24', color: '#f59e0b', icon: BookOpen },
+          { label: 'Avg Institution %', value: `${avgCgpa}%`, color: '#f97316', icon: TrendingUp },
+          { label: 'Total Students', value: totalStudents, color: '#10b981', icon: Users },
+          { label: 'Placement Rate', value: `${placementRate}%`, color: '#f59e0b', icon: Award },
+          { label: 'Exams Conducted', value: exams.length, color: '#f59e0b', icon: BookOpen },
         ].map((k, i) => (
           <motion.div key={k.label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
             className="rounded-2xl p-7" style={{ background: '#121212', border: '1px solid #27272a' }}>
@@ -76,14 +126,14 @@ export default function AdminReports() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="rounded-2xl p-7" style={{ background: '#121212', border: '1px solid #27272a' }}>
-          <h3 className="font-bold text-base text-white mb-6">Department CGPA Comparison</h3>
+          <h3 className="font-bold text-base text-white mb-6">Department % Comparison</h3>
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={mockDepartmentData}>
+            <BarChart data={departmentData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
               <XAxis dataKey="department" stroke="#475569" tick={{ fontSize: 12 }} tickMargin={8} />
-              <YAxis domain={[6, 10]} stroke="#475569" tick={{ fontSize: 12 }} />
+              <YAxis domain={[0, 100]} stroke="#475569" tick={{ fontSize: 12 }} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="avgCgpa" name="Avg CGPA" fill="#f97316" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="avgCgpa" name="Avg B.Tech %" fill="#f97316" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -91,13 +141,12 @@ export default function AdminReports() {
         <div className="rounded-2xl p-7" style={{ background: '#121212', border: '1px solid #27272a' }}>
           <h3 className="font-bold text-base text-white mb-6">Placement Readiness</h3>
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={placementData} barGap={4}>
+            <BarChart data={departmentData} barGap={4}>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis dataKey="dept" stroke="#475569" tick={{ fontSize: 12 }} tickMargin={8} />
+              <XAxis dataKey="department" stroke="#475569" tick={{ fontSize: 12 }} tickMargin={8} />
               <YAxis domain={[0, 100]} stroke="#475569" tick={{ fontSize: 12 }} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="readiness" name="Readiness %" fill="#10b981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="placed" name="Placed %" fill="#f59e0b" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -116,11 +165,11 @@ export default function AdminReports() {
         </div>
 
         <div className="rounded-2xl p-7" style={{ background: '#121212', border: '1px solid #27272a' }}>
-          <h3 className="font-bold text-base text-white mb-6">Monthly CGPA Trend</h3>
+          <h3 className="font-bold text-base text-white mb-6">Yearly CGPA Trend</h3>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={mockPerformanceData}>
+            <LineChart data={performanceData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis dataKey="month" stroke="#475569" tick={{ fontSize: 12 }} tickMargin={8} />
+              <XAxis dataKey="year" stroke="#475569" tick={{ fontSize: 12 }} tickMargin={8} />
               <YAxis domain={[8, 10]} stroke="#475569" tick={{ fontSize: 12 }} />
               <Tooltip content={<CustomTooltip />} />
               <Line type="monotone" dataKey="cgpa" name="Avg CGPA" stroke="#f97316" strokeWidth={2.5} dot={{ fill: '#f97316', r: 5 }} />
@@ -144,21 +193,21 @@ export default function AdminReports() {
               </tr>
             </thead>
             <tbody>
-              {mockDepartmentData.map((d, i) => (
+              {departmentData.map((d, i) => (
                 <tr key={d.department} className="hover:bg-white/5 transition-all"
-                  style={{ borderBottom: i < mockDepartmentData.length - 1 ? '1px solid #27272a' : 'none' }}>
+                  style={{ borderBottom: i < departmentData.length - 1 ? '1px solid #27272a' : 'none' }}>
                   <td className="px-7 py-5 font-semibold text-white">{d.department}</td>
                   <td className="px-7 py-5 text-sm" style={{ color: '#a1a1aa' }}>{d.students}</td>
                   <td className="px-7 py-5">
-                    <span className="font-bold text-base" style={{ color: '#10b981' }}>{d.avgCgpa}</span>
+                    <span className="font-bold text-base" style={{ color: '#10b981' }}>{d.avgCgpa}%</span>
                   </td>
                   <td className="px-7 py-5 text-sm" style={{ color: '#a1a1aa' }}>{d.placed}</td>
                   <td className="px-7 py-5">
                     <div className="flex items-center gap-3">
                       <div className="w-20 h-2 rounded-full overflow-hidden" style={{ background: '#1c1917' }}>
-                        <div className="h-full rounded-full" style={{ width: `${Math.round((d.placed / d.students) * 100)}%`, background: '#f97316' }} />
+                        <div className="h-full rounded-full" style={{ width: `${Math.round((d.placed / d.students) * 100) || 0}%`, background: '#f97316' }} />
                       </div>
-                      <span className="text-sm font-semibold text-white">{Math.round((d.placed / d.students) * 100)}%</span>
+                      <span className="text-sm font-semibold text-white">{Math.round((d.placed / d.students) * 100) || 0}%</span>
                     </div>
                   </td>
                 </tr>

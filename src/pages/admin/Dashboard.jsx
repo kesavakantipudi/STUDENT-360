@@ -4,8 +4,9 @@ import { Users, BookOpen, AlertTriangle, TrendingUp, ChevronRight } from 'lucide
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import StatCard from '../../components/shared/StatCard';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { mockStudents, mockExams, mockViolations, mockDepartmentData } from '../../data/mockData';
 import { generateInitials, getAvatarColor } from '../../utils/helpers';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 const ChartTip = ({ active, payload, label }) =>
   active && payload?.length ? (
@@ -17,19 +18,67 @@ const ChartTip = ({ active, payload, label }) =>
 
 const DEPT_COLORS = ['#f97316', '#f59e0b', '#06b6d4', '#10b981', '#f59e0b'];
 
-const recentActivity = [
-  { text: 'OS Exam results published for CS dept', time: '10m ago', color: '#10b981' },
-  { text: 'Rohan Mehta joined Computer Science', time: '2h ago', color: '#f97316' },
-  { text: 'Violation reported — Vikram Gupta', time: '5h ago', color: '#ef4444' },
-  { text: 'Meera Pillai earned Algorithm Champion', time: '1d ago', color: '#f59e0b' },
-  { text: 'Web Technologies exam scheduled June 1', time: '2d ago', color: '#06b6d4' },
-];
+const recentActivity = [];
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 800); return () => clearTimeout(t); }, []);
+  const [activeExamsCount, setActiveExamsCount] = useState(0);
+  const [students, setStudents] = useState([]);
+  const [violationsCount, setViolationsCount] = useState(0);
 
-  const topStudents = [...mockStudents].sort((a, b) => b.cgpa - a.cgpa).slice(0, 5);
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch Exams
+        const examsSnap = await getDocs(collection(db, 'exams'));
+        let count = 0;
+        examsSnap.forEach((doc) => {
+          if (doc.data().status === 'upcoming') count++;
+        });
+        setActiveExamsCount(count);
+
+        // Fetch Students
+        const studentsSnap = await getDocs(collection(db, 'students'));
+        const studentsList = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setStudents(studentsList);
+
+        // Fetch Violations
+        try {
+          const violSnap = await getDocs(collection(db, 'violations'));
+          setViolationsCount(violSnap.size);
+        } catch(e) {
+          setViolationsCount(0); // If collection doesn't exist
+        }
+      } catch (err) {
+        console.error("Error fetching dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, []);
+
+  // Compute Metrics
+  const totalStudents = students.length;
+  const totalColleges = new Set(students.map((s) => s.college).filter(Boolean)).size;
+  const totalBranches = new Set(students.flatMap((s) => s.branch || [])).size;
+  const averageCGPA = students.length ? (students.reduce((sum, s) => sum + (parseFloat(s.btech) || 0), 0) / students.length).toFixed(2) : "0.00";
+  const backlogStudents = students.filter((s) => s.backlogs > 0).length;
+
+  const topStudents = [...students].sort((a, b) => (parseFloat(b.btech) || 0) - (parseFloat(a.btech) || 0)).slice(0, 5);
+
+  // Compute Chart Data
+  const collegeData = Object.entries(students.reduce((acc, s) => {
+    const c = s.college || "Unknown";
+    acc[c] = (acc[c] || 0) + 1;
+    return acc;
+  }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+
+  const branchData = Object.entries(students.reduce((acc, s) => {
+    const branches = s.branch || [];
+    branches.forEach(b => { acc[b] = (acc[b] || 0) + 1; });
+    return acc;
+  }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -51,54 +100,56 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stat cards */}
-      <div className="stat-grid">
-        <StatCard title="Total Students"  value={mockStudents.length}                              subtitle="All departments"  icon={Users}         color="#f97316" trend="up"   trendValue="+12"   delay={0}    />
-        <StatCard title="Active Exams"    value={mockExams.filter(e=>e.status==='upcoming').length} subtitle="This week"       icon={BookOpen}      color="#10b981" trend="up"   trendValue="3 due" delay={0.08} />
-        <StatCard title="Violations"      value={mockViolations.length}                            subtitle="2 high severity"  icon={AlertTriangle} color="#ef4444" trend="down" trendValue="-2"    delay={0.16} />
-        <StatCard title="Avg CGPA"        value="8.48"                                             subtitle="All departments"  icon={TrendingUp}    color="#f59e0b" trend="up"   trendValue="+0.2"  delay={0.24} />
+      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+        <StatCard title="Total Students"  value={totalStudents}   subtitle="Enrolled"       icon={Users}         color="#f97316" trend="up"   trendValue="+12"   delay={0}    />
+        <StatCard title="Colleges"        value={totalColleges}   subtitle="Institutions"   icon={BookOpen}      color="#06b6d4" trend="none" trendValue=""      delay={0.05} />
+        <StatCard title="Branches"        value={totalBranches}   subtitle="Disciplines"    icon={BookOpen}      color="#f59e0b" trend="none" trendValue=""      delay={0.1}  />
+        <StatCard title="Avg CGPA"        value={averageCGPA}     subtitle="Overall"        icon={TrendingUp}    color="#10b981" trend="up"   trendValue="+0.2"  delay={0.15} />
+        <StatCard title="Backlogs"        value={backlogStudents} subtitle="Needs attention" icon={AlertTriangle} color="#ef4444" trend="down" trendValue="-5"    delay={0.2}  />
       </div>
 
       {/* Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
 
         <div className="chart-card">
           <div className="chart-header">
-            <span className="chart-title">Department Overview</span>
+            <span className="chart-title">Branch Distribution</span>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={mockDepartmentData} barGap={4} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis dataKey="department" stroke="#334155" tick={{ fontSize: 11, fill: '#71717a' }} />
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={branchData.slice(0, 8)} barGap={4} margin={{ top: 10, right: 10, bottom: 0, left: -16 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+              <XAxis dataKey="name" stroke="#334155" tick={{ fontSize: 11, fill: '#71717a' }} />
               <YAxis stroke="#334155" tick={{ fontSize: 11, fill: '#71717a' }} />
-              <Tooltip content={<ChartTip />} />
-              <Bar dataKey="students" name="Students" fill="#f97316" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="placed"   name="Placed"   fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Tooltip content={<ChartTip />} cursor={{ fill: 'rgba(249, 115, 22, 0.05)' }} />
+              <Bar dataKey="value" name="Students" fill="#f97316" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         <div className="chart-card">
           <div className="chart-header">
-            <span className="chart-title">Distribution</span>
+            <span className="chart-title">College Distribution</span>
           </div>
-          <ResponsiveContainer width="100%" height={150}>
-            <PieChart>
-              <Pie data={mockDepartmentData} dataKey="students" nameKey="department" cx="50%" cy="50%" outerRadius={65} innerRadius={35}>
-                {mockDepartmentData.map((_, i) => <Cell key={i} fill={DEPT_COLORS[i % DEPT_COLORS.length]} />)}
-              </Pie>
-              <Tooltip content={<ChartTip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.875rem' }}>
-            {mockDepartmentData.map((d, i) => (
-              <div key={d.department} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: DEPT_COLORS[i], flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>{d.department}</span>
+          <div style={{ display: 'flex', alignItems: 'center', height: 250 }}>
+            <ResponsiveContainer width="60%" height="100%">
+              <PieChart>
+                <Pie data={collegeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} innerRadius={55} paddingAngle={2}>
+                  {collegeData.map((_, i) => <Cell key={i} fill={DEPT_COLORS[i % DEPT_COLORS.length]} />)}
+                </Pie>
+                <Tooltip content={<ChartTip />} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '40%' }}>
+              {collegeData.slice(0, 5).map((d, i) => (
+                <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '2px', background: DEPT_COLORS[i % DEPT_COLORS.length], flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.8125rem', color: '#a1a1aa', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }}>{d.name}</span>
+                  </div>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#fafafa' }}>{d.value}</span>
                 </div>
-                <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#fafafa' }}>{d.students}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -122,10 +173,10 @@ export default function AdminDashboard() {
                   {generateInitials(s.name)}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#fafafa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</p>
-                  <p style={{ fontSize: '0.75rem', color: '#71717a' }}>{s.department}</p>
+                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#fafafa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name || s.rollNo}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#71717a' }}>{s.branch?.[0] || 'Unknown Branch'}</p>
                 </div>
-                <span style={{ fontSize: '1rem', fontWeight: 700, color: '#10b981', flexShrink: 0 }}>{s.cgpa}</span>
+                <span style={{ fontSize: '1rem', fontWeight: 700, color: '#10b981', flexShrink: 0 }}>{s.btech || '0'}%</span>
               </div>
             ))}
           </div>
