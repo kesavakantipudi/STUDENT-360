@@ -63,8 +63,15 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('s360_user');
   };
 
+  const setAuthData = (userData, userRole, extraData = null) => {
+    setUser(userData);
+    setRole(userRole);
+    setStudentData(extraData);
+    localStorage.setItem('s360_user', JSON.stringify({ user: userData, role: userRole, studentData: extraData }));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, role, loading, studentData, login, logout }}>
+    <AuthContext.Provider value={{ user, role, loading, studentData, login, logout, setAuthData }}>
       {children}
     </AuthContext.Provider>
   );

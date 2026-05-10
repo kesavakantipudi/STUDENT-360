@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import {
   GraduationCap,
@@ -17,6 +18,14 @@ import {
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 
+import {
+  doc,
+  setDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+
+import { db } from '../../firebase/firebase';
+
 import { auth } from '../../firebase/firebase';
 import toast from 'react-hot-toast';
 
@@ -28,6 +37,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  const { setAuthData } = useAuth();
 
   // =========================
   // MICROSOFT LOGIN
@@ -38,57 +48,54 @@ export default function LoginPage() {
 
       const provider = new OAuthProvider('microsoft.com');
 
-      // Set your specific Tenant ID here because your Azure app is configured as single-tenant.
-      // Replace 'YOUR_TENANT_ID_HERE' with your actual Azure Directory (tenant) ID.
       provider.setCustomParameters({
-        tenant: '7359f896-71e2-4dae-b8a3-15cdf97f2f10'
+        tenant: '7359f896-71e2-4dae-b8a3-15cdf97f2f10',
       });
 
       const result = await signInWithPopup(auth, provider);
 
       const user = result.user;
 
-      // Restrict only college emails
-      const handleMicrosoftLogin = async () => {
-        try {
-          setLoading(true);
+      // SAVE USER TO FIRESTORE
+      try {
+        await setDoc(
+          doc(db, 'students', user.uid),
+          {
+            uid: user.uid,
+            name: user.displayName || '',
+            email: user.email || '',
+            photo: user.photoURL || '',
+            role: 'student',
 
-          const provider = new OAuthProvider('microsoft.com');
+            createdAt: serverTimestamp(),
+            lastLogin: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (dbError) {
+        console.error('Firestore Save Error:', dbError);
+        // Note: We don't block the login flow here. If permission is denied,
+        // it means your Firebase Firestore security rules might be blocking the write.
+      }
 
-          // Your Azure Tenant ID
-          provider.setCustomParameters({
-            tenant: '7359f896-71e2-4dae-b8a3-15cdf97f2f10',
-          });
-
-          const result = await signInWithPopup(auth, provider);
-
-          const user = result.user;
-
-          console.log('Logged in user:', user);
-
-          toast.success('Microsoft Login Successful');
-
-          navigate('/student/dashboard');
-
-        } catch (error) {
-          console.error('Microsoft Login Error:', error);
-
-          toast.error(error.message || 'Login Failed');
-        } finally {
-          setLoading(false);
-        }
-      };
+      setAuthData(
+        { uid: user.uid, email: user.email, name: user.displayName, photo: user.photoURL },
+        'student'
+      );
 
       toast.success('Microsoft Login Successful');
 
       navigate('/student/dashboard');
+
     } catch (error) {
-      console.error("Microsoft Login Error:", error);
-      toast.error(`Login Failed: ${error.message || 'Unknown Error'}`);
+      console.error('Microsoft Login Error:', error);
+
+      toast.error(error.message || 'Login Failed');
     } finally {
       setLoading(false);
     }
   };
+
 
   // =========================
   // ADMIN LOGIN
@@ -104,7 +111,13 @@ export default function LoginPage() {
     try {
       setLoading(true);
 
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      setAuthData(
+        { uid: user.uid, email: user.email },
+        'admin'
+      );
 
       toast.success('Admin Login Successful');
 
