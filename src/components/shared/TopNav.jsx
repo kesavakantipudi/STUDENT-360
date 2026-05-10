@@ -14,6 +14,7 @@ export default function TopNav({ title = 'Dashboard' }) {
 
   const initials   = generateInitials(user?.name || '');
   const avatarBg   = getAvatarColor(user?.name || '');
+  const rollNo     = user?.email ? user.email.split('@')[0].toUpperCase() : '';
   const unread     = mockNotifications.filter(n => !n.read).length;
   const typeColor  = t => ({ info: '#f97316', success: '#10b981', achievement: '#f59e0b', warning: '#f97316', reminder: '#06b6d4' }[t] || '#f97316');
 
@@ -140,8 +141,20 @@ export default function TopNav({ title = 'Dashboard' }) {
 
         {/* User */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-          <div style={{ width: 32, height: 32, borderRadius: '50%', background: avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6875rem', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-            {initials}
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6875rem', fontWeight: 700, color: '#fff', flexShrink: 0, overflow: 'hidden' }}>
+            {rollNo ? (
+              <>
+                <img 
+                  src={`https://mobile.technicalhub.io:5010/uploads/students-images/${rollNo}.png`} 
+                  alt="Profile" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'block'; }}
+                />
+                <span style={{ display: 'none' }}>{initials}</span>
+              </>
+            ) : (
+              <span>{initials}</span>
+            )}
           </div>
           <div className="hidden sm:block">
             <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#fafafa', lineHeight: 1.2 }}>{user?.name}</p>

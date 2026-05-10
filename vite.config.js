@@ -10,4 +10,20 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://maya.technicalhub.io/node/api',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        configure: (proxy, options) => {
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            proxyReq.setHeader('Origin', 'https://maya.technicalhub.io');
+            proxyReq.setHeader('Referer', 'https://maya.technicalhub.io/');
+          });
+        }
+      }
+    }
+  }
 })

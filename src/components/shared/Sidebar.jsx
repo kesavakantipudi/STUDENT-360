@@ -12,7 +12,6 @@ import { generateInitials, getAvatarColor } from '../../utils/helpers';
 
 const studentNav = [
   { icon: LayoutDashboard, label: 'Dashboard',      path: '/student/dashboard' },
-  { icon: BookOpen,        label: 'Scores',          path: '/student/scores' },
   { icon: Calendar,        label: 'Upcoming Exams',  path: '/student/exams' },
   { icon: Award,           label: 'Results',         path: '/student/results' },
   { icon: User,            label: 'Profile',         path: '/student/profile' },

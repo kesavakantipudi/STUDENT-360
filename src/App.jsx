@@ -5,10 +5,10 @@ import { AppProvider } from './context/AppContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import LoginPage from './pages/auth/LoginPage';
+import { ErrorBoundary } from './components/shared/ErrorBoundary';
 
 // Student pages
 import StudentDashboard from './pages/student/Dashboard';
-import ScoresPage from './pages/student/Scores';
 import UpcomingExamsPage from './pages/student/UpcomingExams';
 import ResultsPage from './pages/student/Results';
 import ProfilePage from './pages/student/Profile';
@@ -69,10 +69,9 @@ export default function App() {
             >
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<StudentDashboard />} />
-              <Route path="scores" element={<ScoresPage />} />
               <Route path="exams" element={<UpcomingExamsPage />} />
               <Route path="results" element={<ResultsPage />} />
-              <Route path="profile" element={<ProfilePage />} />
+              <Route path="profile" element={<ErrorBoundary><ProfilePage /></ErrorBoundary>} />
               <Route path="github" element={<GitHubAnalysisPage />} />
               <Route path="violations" element={<ViolationsPage />} />
               <Route path="achievements" element={<AchievementsPage />} />

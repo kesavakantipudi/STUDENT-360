@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Calendar, Trophy, TrendingUp, Star, Target, Award, ChevronRight, Zap } from 'lucide-react';
+import { BookOpen, Calendar, Trophy, TrendingUp, Star, Target, Award, ChevronRight, Zap, Code } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar } from 'recharts';
 import StatCard from '../../components/shared/StatCard';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
@@ -30,12 +30,48 @@ const activityLog = [
 ];
 
 export default function StudentDashboard() {
+  const { user } = useAuth();
+  const rollNo = user?.email ? user.email.split('@')[0].toUpperCase() : '';
   const [loading, setLoading] = useState(true);
-  const student = mockStudents[0];
+  const [studentData, setStudentData] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState(null);
+
   const upcomingExams  = mockExams.filter(e => e.status === 'upcoming').slice(0, 3);
   const studentBadges  = mockStudentBadges.filter(sb => sb.studentId === 's001');
 
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 800); return () => clearTimeout(t); }, []);
+  useEffect(() => {
+    if (!rollNo) return;
+    const fetchData = async () => {
+      try {
+        const body = JSON.stringify({ roll_no: rollNo });
+        const headers = { 'Content-Type': 'application/json' };
+
+        const safeFetch = async (url) => {
+          try {
+            const res = await fetch(url, { method: 'POST', headers, body });
+            if (!res.ok) return null;
+            return await res.json();
+          } catch (e) {
+            console.error('Fetch error for', url, e);
+            return null;
+          }
+        };
+
+        const [studentJson, statsJson] = await Promise.all([
+          safeFetch('/api/get-student-by-rollno'),
+          safeFetch('/api/get-student-problems-count-dashboard')
+        ]);
+
+        if (studentJson) setStudentData(studentJson);
+        if (statsJson) setDashboardStats(statsJson);
+      } catch (err) {
+        console.error("Error fetching dashboard data", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [rollNo]);
 
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -46,6 +82,11 @@ export default function StudentDashboard() {
       </div>
     </div>
   );
+
+  const studentName = studentData?.first_name || user?.name || 'Student';
+  const studentDept = studentData?.branch?.[0] || 'No branch assigned';
+  const studentYear = studentData?.passout_year || '';
+  const studentRoll = studentData?.roll_no || rollNo;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -65,9 +106,9 @@ export default function StudentDashboard() {
           <Zap size={80} color="#f97316" />
         </div>
         <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#fdba74', marginBottom: '0.375rem' }}>👋 Welcome back,</p>
-        <h1 style={{ fontSize: '1.625rem', fontWeight: 800, color: '#fafafa', letterSpacing: '-0.03em', lineHeight: 1.2 }}>{student.name}</h1>
+        <h1 style={{ fontSize: '1.625rem', fontWeight: 800, color: '#fafafa', letterSpacing: '-0.03em', lineHeight: 1.2 }}>{studentName}</h1>
         <p style={{ fontSize: '0.875rem', color: '#71717a', marginTop: '0.375rem' }}>
-          {student.department} · Year {student.year} · {student.rollNumber}
+          {studentDept} {studentYear ? `· Batch ${studentYear}` : ''} · {studentRoll}
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginTop: '0.875rem' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.8125rem', color: '#a1a1aa' }}>
@@ -82,10 +123,10 @@ export default function StudentDashboard() {
 
       {/* Stat cards */}
       <div className="stat-grid">
-        <StatCard title="Current CGPA"    value="9.2"                subtitle="Top 5% of class"    icon={TrendingUp} color="#f97316" trend="up"   trendValue="+0.1" delay={0}   />
-        <StatCard title="Upcoming Exams"  value={upcomingExams.length} subtitle="Next: May 20"     icon={Calendar}   color="#06b6d4" trend="up"   trendValue="3 due" delay={0.08} />
-        <StatCard title="Badges Earned"   value={studentBadges.length} subtitle="Keep it up!"     icon={Trophy}     color="#f59e0b" trend="up"   trendValue="+2"    delay={0.16} />
-        <StatCard title="Attendance"      value="91%"               subtitle="Above threshold"     icon={Target}     color="#10b981" trend="up"   trendValue="Good"  delay={0.24} />
+        <StatCard title="Total Problems"  value={dashboardStats?.total || 0} subtitle="Across all platforms" icon={Code} color="#f97316" trend="up" trendValue={`${dashboardStats?.easy || 0} Easy`} delay={0} />
+        <StatCard title="Coding Rank"     value={dashboardStats?.rank ? `#${dashboardStats.rank}` : 'N/A'} subtitle="Global Rank" icon={Trophy} color="#06b6d4" trend="up" trendValue={`${dashboardStats?.score || 0} pts`} delay={0.08} />
+        <StatCard title="Active Courses"  value={studentData?.current_courses?.length || 0} subtitle="Currently Enrolled" icon={BookOpen} color="#f59e0b" trend="none" trendValue="" delay={0.16} />
+        <StatCard title="Upcoming Exams"  value={upcomingExams.length} subtitle="Next: May 20" icon={Calendar} color="#10b981" trend="up" trendValue="3 due" delay={0.24} />
       </div>
 
       {/* Charts row */}

@@ -1,27 +1,69 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Phone, BookOpen, Code, Edit3, Save, X, GitBranch } from 'lucide-react';
+import { User, BookOpen, Code, Edit3, Save, X, Trophy, Star } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { mockStudents } from '../../data/mockData';
-import { generateInitials, getAvatarColor, formatDate } from '../../utils/helpers';
+import { generateInitials, getAvatarColor } from '../../utils/helpers';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
+  const { user } = useAuth();
+  const rollNo = user?.email ? user.email.split('@')[0].toUpperCase() : '';
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const student = mockStudents[0];
-  const [form, setForm] = useState({ phone: student.phone, githubUsername: student.githubUsername });
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
+  const [studentData, setStudentData] = useState(null);
+  const [codingProfiles, setCodingProfiles] = useState({ leetcode: null, gfg: null, codechef: null, hackerrank: null });
+  const [form, setForm] = useState({ phone: '', githubUsername: '' });
 
-  const initials = generateInitials(student.name);
-  const avatarColor = getAvatarColor(student.name);
+  useEffect(() => {
+    if (!rollNo) return;
+    const fetchProfileData = async () => {
+      try {
+        const body = JSON.stringify({ roll_no: rollNo });
+        const headers = { 'Content-Type': 'application/json' };
+        
+        const safeFetch = async (url) => {
+          try {
+            const res = await fetch(url, { method: 'POST', headers, body });
+            if (!res.ok) return null;
+            return await res.json();
+          } catch (e) {
+            console.error('Fetch error for', url, e);
+            return null;
+          }
+        };
+
+        const [studentJson, lc, gfg, cc, hr] = await Promise.all([
+          safeFetch('/api/get-student-by-rollno'),
+          safeFetch('/api/get-leetcode-details-by-rollno'),
+          safeFetch('/api/get-geeksforgeeks-details-by-rollno'),
+          safeFetch('/api/get-codechef-details-by-rollno'),
+          safeFetch('/api/get-hackerrank-details-by-rollno')
+        ]);
+
+        if (studentJson) setStudentData(studentJson);
+        setCodingProfiles({ leetcode: lc, gfg: gfg, codechef: cc, hackerrank: hr });
+        if (studentJson) setForm({ phone: studentJson.mobile || '', githubUsername: '' });
+      } catch (err) {
+        console.error("Profile fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfileData();
+  }, [rollNo]);
+
+  const initials = generateInitials(studentData?.first_name || user?.name || '');
+  const avatarColor = getAvatarColor(studentData?.first_name || user?.name || '');
 
   const handleSave = () => { setEditing(false); toast.success('Profile updated successfully!'); };
 
   if (loading) return <LoadingSkeleton type="list" rows={4} />;
 
+  const { leetcode, gfg, codechef, hackerrank } = codingProfiles;
+
   return (
-    <div className="space-y-7 max-w-4xl">
+    <div className="space-y-7 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">My Profile</h1>
         <p className="text-base mt-1.5" style={{ color: '#71717a' }}>View and manage your academic profile</p>
@@ -32,10 +74,20 @@ export default function ProfilePage() {
         <div className="flex items-start gap-7">
           <motion.div whileHover={{ scale: 1.05 }} className="relative flex-shrink-0">
             <div
-              className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-xl"
+              className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-xl overflow-hidden"
               style={{ background: `linear-gradient(135deg, ${avatarColor}, ${avatarColor}88)` }}
             >
-              {initials}
+              {rollNo ? (
+                <>
+                  <img 
+                    src={`https://mobile.technicalhub.io:5010/uploads/students-images/${rollNo}.png`} 
+                    alt="Profile" 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'block'; }}
+                  />
+                  <span style={{ display: 'none' }}>{initials}</span>
+                </>
+              ) : <span>{initials}</span>}
             </div>
             <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full border-2"
               style={{ background: '#10b981', borderColor: '#121212' }} />
@@ -44,11 +96,11 @@ export default function ProfilePage() {
           <div className="flex-1">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-white">{student.name}</h2>
-                <p className="text-base mt-1" style={{ color: '#71717a' }}>{student.email}</p>
+                <h2 className="text-2xl font-bold text-white">{studentData?.first_name || user?.name}</h2>
+                <p className="text-base mt-1" style={{ color: '#71717a' }}>{studentData?.email || user?.email}</p>
                 <div className="flex items-center gap-4 mt-3">
-                  <span className="text-sm px-3 py-1.5 rounded-full font-semibold status-active">Active Student</span>
-                  <span className="text-sm font-medium" style={{ color: '#71717a' }}>{student.rollNumber}</span>
+                  <span className="text-sm px-3 py-1.5 rounded-full font-semibold" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>Active Student</span>
+                  <span className="text-sm font-medium" style={{ color: '#71717a' }}>{studentData?.roll_no || rollNo}</span>
                 </div>
               </div>
               {!editing ? (
@@ -85,14 +137,14 @@ export default function ProfilePage() {
             Personal Information
           </h3>
           <div className="space-y-4">
-            <InfoRow label="Full Name" value={student.name} />
-            <InfoRow label="Email" value={student.email} />
+            <InfoRow label="Full Name" value={studentData?.first_name || user?.name} />
+            <InfoRow label="Email" value={studentData?.email || user?.email} />
             <InfoRow label="Phone" value={editing ? (
               <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                 className="text-sm text-white bg-transparent border-b w-full outline-none pb-0.5"
                 style={{ borderColor: '#f97316' }} />
-            ) : student.phone} />
-            <InfoRow label="Join Date" value={formatDate(student.joinDate)} />
+            ) : studentData?.mobile} />
+            <InfoRow label="Gender" value={studentData?.gender} />
           </div>
         </div>
 
@@ -105,49 +157,86 @@ export default function ProfilePage() {
             Academic Information
           </h3>
           <div className="space-y-4">
-            <InfoRow label="Roll Number" value={student.rollNumber} />
-            <InfoRow label="Department" value={student.department} />
-            <InfoRow label="Year" value={`Year ${student.year}`} />
-            <InfoRow label="CGPA" value={<span className="font-bold text-base" style={{ color: '#10b981' }}>{student.cgpa} / 10.0</span>} />
+            <InfoRow label="Roll Number" value={studentData?.roll_no || rollNo} />
+            <InfoRow label="College" value={studentData?.college} />
+            <InfoRow label="Department" value={studentData?.branch?.join(', ')} />
+            <InfoRow label="Passout Year" value={studentData?.passout_year} />
           </div>
         </div>
+      </div>
 
-        {/* GitHub */}
-        <div className="rounded-2xl p-7" style={{ background: '#121212', border: '1px solid #27272a' }}>
-          <h3 className="font-bold text-base text-white mb-5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(148,163,184,0.1)' }}>
-              <GitBranch size={16} style={{ color: '#a1a1aa' }} />
+      {/* Coding Profiles Section */}
+      <div>
+        <h2 className="text-xl font-bold text-white mt-4 mb-4 flex items-center gap-2">
+          <Code size={20} style={{ color: '#f97316' }} /> Coding Profiles
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* LeetCode */}
+          <div className="rounded-2xl p-6" style={{ background: '#121212', border: '1px solid #27272a' }}>
+            <h3 className="font-bold text-base text-white mb-4 flex items-center justify-between">
+              LeetCode
+              <a href={leetcode?.lc_profile || '#'} target="_blank" rel="noreferrer" style={{ color: '#f97316' }}>
+                <Star size={16} />
+              </a>
+            </h3>
+            <div className="space-y-3">
+              <InfoRow label="Total Solved" value={leetcode?.lc_total_progarms || 0} />
+              <InfoRow label="Easy" value={leetcode?.lc_easy || 0} />
+              <InfoRow label="Medium" value={leetcode?.lc_medium || 0} />
+              <InfoRow label="Hard" value={leetcode?.lc_hard || 0} />
+              <InfoRow label="Global Rank" value={leetcode?.lc_rank ? `#${leetcode.lc_rank}` : 'N/A'} />
             </div>
-            GitHub Profile
-          </h3>
-          <InfoRow label="Username" value={editing ? (
-            <input value={form.githubUsername} onChange={e => setForm(f => ({ ...f, githubUsername: e.target.value }))}
-              className="text-sm text-white bg-transparent border-b w-full outline-none pb-0.5"
-              style={{ borderColor: '#f97316' }} />
-          ) : (
-            <a href={`https://github.com/${student.githubUsername}`} target="_blank" rel="noreferrer"
-              className="hover:underline text-sm" style={{ color: '#fdba74' }}>
-              @{student.githubUsername}
-            </a>
-          )} />
-        </div>
+          </div>
 
-        {/* Skills */}
-        <div className="rounded-2xl p-7" style={{ background: '#121212', border: '1px solid #27272a' }}>
-          <h3 className="font-bold text-base text-white mb-5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(6,182,212,0.12)' }}>
-              <Code size={16} style={{ color: '#06b6d4' }} />
+          {/* GeeksForGeeks */}
+          <div className="rounded-2xl p-6" style={{ background: '#121212', border: '1px solid #27272a' }}>
+            <h3 className="font-bold text-base text-white mb-4 flex items-center justify-between">
+              GeeksForGeeks
+              <a href={gfg?.gfg_profile || '#'} target="_blank" rel="noreferrer" style={{ color: '#10b981' }}>
+                <Star size={16} />
+              </a>
+            </h3>
+            <div className="space-y-3">
+              <InfoRow label="Total Problems" value={gfg?.gfg_total_problems || 0} />
+              <InfoRow label="Score" value={gfg?.gfg_score || 0} />
+              <InfoRow label="Streak" value={`${gfg?.gfg_streak || 0} days`} />
+              <InfoRow label="School" value={gfg?.gfg_school || 0} />
+              <InfoRow label="Basic" value={gfg?.gfg_basic || 0} />
             </div>
-            Technical Skills
-          </h3>
-          <div className="flex flex-wrap gap-3">
-            {student.skills.map((skill, i) => (
-              <motion.span key={skill} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}
-                className="text-sm px-4 py-2 rounded-xl font-medium"
-                style={{ background: 'rgba(249, 115, 22,0.1)', color: '#fdba74', border: '1px solid rgba(249, 115, 22,0.22)' }}>
-                {skill}
-              </motion.span>
-            ))}
+          </div>
+
+          {/* CodeChef */}
+          <div className="rounded-2xl p-6" style={{ background: '#121212', border: '1px solid #27272a' }}>
+            <h3 className="font-bold text-base text-white mb-4 flex items-center justify-between">
+              CodeChef
+              <a href={codechef?.cc_profile || '#'} target="_blank" rel="noreferrer" style={{ color: '#8b5cf6' }}>
+                <Trophy size={16} />
+              </a>
+            </h3>
+            <div className="space-y-3">
+              <InfoRow label="Rating" value={codechef?.rating || 0} />
+              <InfoRow label="Stars" value={`${codechef?.star_rating || 0} ★`} />
+              <InfoRow label="Total Solved" value={codechef?.total_problems || 0} />
+              <InfoRow label="Contests" value={codechef?.contests || 0} />
+              <InfoRow label="Streak" value={`${codechef?.streak || 0} days`} />
+            </div>
+          </div>
+
+          {/* HackerRank */}
+          <div className="rounded-2xl p-6" style={{ background: '#121212', border: '1px solid #27272a' }}>
+            <h3 className="font-bold text-base text-white mb-4 flex items-center justify-between">
+              HackerRank
+              <a href={hackerrank?.hr_profile || '#'} target="_blank" rel="noreferrer" style={{ color: '#06b6d4' }}>
+                <Code size={16} />
+              </a>
+            </h3>
+            <div className="space-y-3">
+              <InfoRow label="Badges" value={hackerrank?.hr_badges || 0} />
+              <InfoRow label="Total Stars" value={`${hackerrank?.hr_total_stars || 0} ★`} />
+              <InfoRow label="C/C++" value={(hackerrank?.hr_c || 0) + (hackerrank?.hr_cpp || 0)} />
+              <InfoRow label="Java" value={hackerrank?.hr_java || 0} />
+              <InfoRow label="Python" value={hackerrank?.hr_python || 0} />
+            </div>
           </div>
         </div>
       </div>
@@ -157,9 +246,9 @@ export default function ProfilePage() {
 
 function InfoRow({ label, value }) {
   return (
-    <div className="flex items-start justify-between gap-6 py-3" style={{ borderBottom: '1px solid #1c1917' }}>
-      <span className="text-sm font-medium flex-shrink-0" style={{ color: '#71717a' }}>{label}</span>
-      <span className="text-sm text-white text-right">{value}</span>
+    <div className="flex items-start justify-between gap-4 py-2" style={{ borderBottom: '1px solid #1c1917' }}>
+      <span className="text-xs font-medium flex-shrink-0" style={{ color: '#71717a' }}>{label}</span>
+      <span className="text-xs text-white text-right font-medium">{value}</span>
     </div>
   );
 }
