@@ -30,38 +30,47 @@ STUDENT 360 is a modern, premium web application designed to monitor and analyze
 ### Prerequisites
 - Node.js (v18 or higher recommended)
 - npm or yarn
+- Firebase project with Firestore database
+- (Optional) Power Automate webhook URL for email notifications
+- (Optional) GitHub personal access token for higher API rate limits
 
 ### Installation
 
 1. Clone the repository and navigate to the project folder:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/kesavakantipudi/STUDENT-360.git
    cd Student-360TestingApp-main
    ```
-
-2. Copy environment variables from `.env.example` and fill in your Firebase and Power Automate values:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Install dependencies and start the app:
-   ```bash
-   npm install
-   npm run dev
-   ```
-
 
 2. Install dependencies:
    ```bash
    npm install
    ```
 
-3. Start the development server:
+3. Configure environment variables:
+   ```bash
+   cp .env.example .env.local
+   ```
+
+4. Add your Firebase credentials to `.env.local`:
+   ```env
+   VITE_FIREBASE_API_KEY=your_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+   VITE_POWER_AUTOMATE_URL=https://prod-xx.centralindia.logic.azure.com/...
+   VITE_GITHUB_TOKEN=ghp_your_token (optional)
+   ```
+
+5. Start the development server:
    ```bash
    npm run dev
    ```
 
-4. Open your browser and navigate to `http://localhost:5173`.
+6. Open your browser and navigate to `http://localhost:5173`.
 
 ## 🔐 Authentication (Demo Mode)
 
@@ -80,3 +89,103 @@ The UI was explicitly designed to break away from traditional, sterile education
 - Glassmorphism effects and ambient glowing backgrounds.
 - Pill-shaped components and smooth hover micro-interactions.
 - Standardized, spacious grid layouts to ensure dense data readability without cognitive overload.
+
+## 🔥 Firebase Setup
+
+### Creating a Firestore Database
+
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Create a new project or select an existing one
+3. Enable Firestore Database:
+   - Click "Firestore Database" in the sidebar
+   - Click "Create Database"
+   - Choose "Start in production mode"
+4. Get your credentials:
+   - Go to Project Settings (⚙️ icon)
+   - Click "Service Accounts"
+   - Download JSON key for backend operations
+   - Go to "General" tab and find your web app config
+
+### Firestore Collections
+
+The app expects the following collections:
+
+- **students** - Student profiles with GitHub usernames
+- **results** - Exam results and scores
+- **exams** - Exam information and schedules
+- **examInvites** - Unique exam invitation codes (for preventing duplicates)
+- **violations** - Student behavior violations
+- **achievements** - Student achievement badges
+
+## 🚀 Deployment
+
+### Deploy to Vercel
+
+1. Connect your GitHub repository to Vercel
+2. In Vercel project settings, add environment variables:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+   - `VITE_FIREBASE_MEASUREMENT_ID`
+   - `VITE_POWER_AUTOMATE_URL` (optional)
+   - `VITE_GITHUB_TOKEN` (optional)
+
+3. Push to `main` branch to trigger automatic deployment
+4. Vercel will build and deploy your app automatically
+
+## 🔐 Security Features
+
+- **Environment Variables:** Sensitive credentials stored in environment variables, not hardcoded
+- **Firebase Security Rules:** Production database requires proper authentication
+- **API Security:** Removed insecure SSL bypass, uses standard HTTPS
+- **GitHub Token:** Optional token support for higher GitHub API rate limits
+- **Power Automate Integration:** Secure webhook-based email notifications
+
+## 📦 Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build locally
+- `npm run lint` - Run ESLint
+
+## 📂 Project Structure
+
+```
+src/
+├── components/
+│   ├── shared/          # Reusable components
+│   └── ...
+├── pages/
+│   ├── admin/           # Admin-only pages
+│   ├── student/         # Student-only pages
+│   └── auth/            # Authentication pages
+├── firebase/            # Firebase configuration
+├── context/             # React Context (Auth, App state)
+├── routes/              # Protected routes
+└── utils/               # Helper functions
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Create a new branch: `git checkout -b feature/your-feature`
+2. Make your changes and commit: `git commit -m 'Add your feature'`
+3. Push to the branch: `git push origin feature/your-feature`
+4. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License.
+
+## 🎯 Future Enhancements
+
+- [ ] Advanced analytics dashboard
+- [ ] Machine learning-based student performance predictions
+- [ ] Mobile app (React Native)
+- [ ] Real-time notifications
+- [ ] Custom report generation
+- [ ] Multi-language support
