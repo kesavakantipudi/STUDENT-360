@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Calendar, Clock, BookOpen, ChevronRight, Edit2, Trash2, ShieldAlert, Monitor, UserCheck, Code, Save, X, Loader2 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
@@ -294,9 +294,6 @@ export default function AdminExams() {
 }
 
 function ExamModal({ exam, onClose, onSave, isSaving }) {
-  const dateInputRef = useRef(null);
-  const timeInputRef = useRef(null);
-  
   const [form, setForm] = useState({
     title: exam?.title || '', 
     subject: exam?.subject || '', 
@@ -340,14 +337,13 @@ function ExamModal({ exam, onClose, onSave, isSaving }) {
               color-scheme: dark;
               accent-color: #f97316;
               font-size: 1em;
+              cursor: pointer;
             }
-            .custom-date::-webkit-calendar-picker-indicator,
-            .custom-time::-webkit-calendar-picker-indicator {
-              display: none;
-            }
-            .custom-date,
-            .custom-time {
-              padding-right: 2.5rem !important;
+            input[type="date"]::-webkit-calendar-picker-indicator,
+            input[type="time"]::-webkit-calendar-picker-indicator {
+              filter: invert(0) sepia(1) saturate(10) hue-rotate(320deg) brightness(1.2);
+              cursor: pointer;
+              opacity: 1;
             }
           `}
         </style>
@@ -384,24 +380,16 @@ function ExamModal({ exam, onClose, onSave, isSaving }) {
 
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Date <span className="text-red-500">*</span></label>
-            <div className="relative" style={{ borderRadius: '12px' }}>
-              <input type="date" min={today} value={form.date} onChange={set('date')} ref={dateInputRef}
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none pl-10 custom-date cursor-pointer"
-                style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa', paddingRight: '2.5rem' }} required />
-              <Calendar size={16} className="absolute left-3.5 top-3.5 pointer-events-none" style={{ color: '#ffffff', zIndex: 10 }} />
-              <Calendar size={16} className="absolute right-3 top-3.5 cursor-pointer" style={{ color: '#f97316', zIndex: 11 }} onClick={() => dateInputRef.current?.click()} />
-            </div>
+            <input type="date" min={today} value={form.date} onChange={set('date')}
+              className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} required />
           </div>
 
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Time <span className="text-red-500">*</span></label>
-            <div className="relative" style={{ borderRadius: '12px' }}>
-              <input type="time" value={form.time} onChange={set('time')} ref={timeInputRef}
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none pl-10 custom-time cursor-pointer"
-                style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa', paddingRight: '2.5rem' }} required />
-              <Clock size={16} className="absolute left-3.5 top-3.5 pointer-events-none" style={{ color: '#ffffff', zIndex: 10 }} />
-              <Clock size={16} className="absolute right-3 top-3.5 cursor-pointer" style={{ color: '#f97316', zIndex: 11 }} onClick={() => timeInputRef.current?.click()} />
-            </div>
+            <input type="time" value={form.time} onChange={set('time')}
+              className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} required />
           </div>
 
           <div>
