@@ -72,18 +72,6 @@ STUDENT 360 is a modern, premium web application designed to monitor and analyze
 
 6. Open your browser and navigate to `http://localhost:5173`.
 
-## 🔐 Authentication (Demo Mode)
-
-The application currently runs in a fully mocked frontend environment. No backend configuration or database is required. Use the built-in demo credentials to explore the platform:
-
-**Student Access:**
-- Email: `student@demo.com`
-- Password: `demo1234`
-
-**Admin Access:**
-- Email: `admin@demo.com`
-- Password: `admin1234`
-
 ## 🎨 UI/UX Philosophy
 The UI was explicitly designed to break away from traditional, sterile educational software. It utilizes a **Premium Dark/Orange Theme** featuring:
 - Glassmorphism effects and ambient glowing backgrounds.
