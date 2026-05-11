@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Plus, Send, X, Save } from 'lucide-react';
+import { Bell, Plus, Send, X, Save, Loader2 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import { formatDate } from '../../utils/helpers';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ export default function AdminNotifications() {
   const [loading, setLoading] = useState(true);
   const [notifs, setNotifs] = useState([]);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({ title: '', message: '', type: 'info' });
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function AdminNotifications() {
 
   const handleSend = async () => {
     if (!form.title || !form.message) { toast.error('Fill all fields'); return; }
+    setIsSaving(true);
     try {
       const newId = `notif_${Date.now()}`;
       const payload = { ...form, date: new Date().toISOString().slice(0, 10), read: false };
@@ -44,6 +46,8 @@ export default function AdminNotifications() {
       setForm({ title: '', message: '', type: 'info' });
     } catch (err) {
       toast.error('Failed to send notification');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -125,11 +129,13 @@ export default function AdminNotifications() {
                     style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} />
                 </div>
               </div>
-              <div className="flex gap-3 mt-5">
-                <button onClick={() => setComposeOpen(false)} className="flex-1 py-2.5 rounded-xl text-sm" style={{ background: '#1c1917', color: '#a1a1aa' }}>Cancel</button>
-                <button onClick={handleSend} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-white"
-                  style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)' }}>
-                  <Send size={14} /> Send
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setComposeOpen(false)} disabled={isSaving} className="flex-1 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors"
+                  style={{ background: '#1c1917', color: '#a1a1aa', opacity: isSaving ? 0.5 : 1 }}>Cancel</button>
+                <button onClick={handleSend} disabled={isSaving} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-opacity"
+                  style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)', opacity: isSaving ? 0.7 : 1 }}>
+                  {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} 
+                  {isSaving ? 'Sending...' : 'Send Broadcast'}
                 </button>
               </div>
             </motion.div>

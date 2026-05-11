@@ -1,6 +1,6 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Calendar, Clock, BookOpen, Edit2, Trash2, X, Save, Monitor, Code, UserCheck } from 'lucide-react';
+import { Search, Plus, Calendar, Clock, BookOpen, ChevronRight, Edit2, Trash2, ShieldAlert, Monitor, UserCheck, Code, Save, X, Loader2 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import { formatDate, getDifficultyColor, getExamStatusColor } from '../../utils/helpers';
 import toast from 'react-hot-toast';
@@ -12,6 +12,9 @@ export default function AdminExams() {
   const [exams, setExams] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editExam, setEditExam] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [filter, setFilter] = useState('all');
 
   const fetchExams = async () => {
@@ -40,16 +43,22 @@ export default function AdminExams() {
   const filtered = exams.filter(e => filter === 'all' || e.status === filter);
 
   const handleDelete = async (id) => {
+    setIsDeleting(true);
+    setDeletingId(id);
     try {
       await deleteDoc(doc(db, 'exams', id));
       setExams(p => p.filter(e => e.id !== id));
       toast.success('Exam removed');
     } catch (error) {
       toast.error('Failed to delete exam');
+    } finally {
+      setIsDeleting(false);
+      setDeletingId(null);
     }
   };
 
   const handleSave = async (data) => {
+    setIsSaving(true);
     try {
       if (editExam?.id) {
         const examRef = doc(db, 'exams', editExam.id);
@@ -64,8 +73,9 @@ export default function AdminExams() {
       setModalOpen(false);
       setEditExam(null);
     } catch (error) {
-      console.error(error);
       toast.error('Failed to save exam');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -141,9 +151,10 @@ export default function AdminExams() {
                       <button onClick={() => { setEditExam(exam); setModalOpen(true); }}
                         className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-blue-500/20 transition-all"
                         style={{ color: '#f97316' }}><Edit2 size={15} /></button>
-                      <button onClick={() => handleDelete(exam.id)}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-red-500/20 transition-all"
-                        style={{ color: '#ef4444' }}><Trash2 size={15} /></button>
+                      <button onClick={() => handleDelete(exam.id)} disabled={isDeleting && deletingId === exam.id} className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-red-500/20 transition-all"
+                        style={{ color: '#ef4444', opacity: isDeleting && deletingId === exam.id ? 0.5 : 1 }}>
+                        {isDeleting && deletingId === exam.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                      </button>
                     </div>
                   </div>
 
@@ -169,13 +180,13 @@ export default function AdminExams() {
       </div>
 
       <AnimatePresence>
-        {modalOpen && <ExamModal exam={editExam} onClose={() => { setModalOpen(false); setEditExam(null); }} onSave={handleSave} />}
+        {modalOpen && <ExamModal exam={editExam} onClose={() => { setModalOpen(false); setEditExam(null); }} onSave={handleSave} isSaving={isSaving} />}
       </AnimatePresence>
     </div>
   );
 }
 
-function ExamModal({ exam, onClose, onSave }) {
+function ExamModal({ exam, onClose, onSave, isSaving }) {
   const [form, setForm] = useState({
     title: exam?.title || '', 
     subject: exam?.subject || '', 
@@ -306,12 +317,12 @@ function ExamModal({ exam, onClose, onSave }) {
           </div>
 
           <div className="md:col-span-2 flex gap-3 mt-4 pt-4 border-t border-zinc-800">
-            <button type="button" onClick={onClose} className="flex-1 py-3.5 rounded-xl text-sm font-medium transition-colors hover:bg-zinc-800" style={{ background: '#1c1917', color: '#a1a1aa' }}>
+            <button type="button" onClick={onClose} disabled={isSaving} className="flex-1 py-3.5 rounded-xl text-sm font-medium transition-colors hover:bg-zinc-800" style={{ background: '#1c1917', color: '#a1a1aa', opacity: isSaving ? 0.5 : 1 }}>
               Cancel
             </button>
-            <button type="submit" className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.02]"
-              style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)', boxShadow: '0 8px 20px rgba(249,115,22,0.2)' }}>
-              <Save size={16} /> {exam ? 'Update Exam' : 'Schedule Exam'}
+            <button type="submit" disabled={isSaving} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.02]"
+              style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)', opacity: isSaving ? 0.7 : 1 }}>
+              {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {isSaving ? 'Saving...' : (exam ? 'Update Exam' : 'Schedule Exam')}
             </button>
           </div>
         </form>

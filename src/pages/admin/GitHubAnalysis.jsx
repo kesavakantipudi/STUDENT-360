@@ -85,8 +85,8 @@ export default function AdminGitHub() {
   // Aggregate languages
   const languageCounts = {};
   studentsWithGithub.forEach(s => {
-    (s.githubStats?.languages || []).forEach(l => {
-      languageCounts[l.name] = (languageCounts[l.name] || 0) + (l.size || 0);
+    (s.githubStats?.topLanguages || []).forEach(l => {
+      languageCounts[l.name] = (languageCounts[l.name] || 0) + (l.count || 0);
     });
   });
   const totalLangSize = Object.values(languageCounts).reduce((a,b) => a+b, 0);

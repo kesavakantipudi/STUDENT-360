@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Edit2, Trash2, Download, X, Save } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Download, X, Save, Loader2 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import { generateInitials, getAvatarColor, exportToCSV } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import { collection, getDocs, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
+
+const DEPTS = ['All', 'Computer Science', 'Information Tech', 'Electronics', 'Mechanical', 'Civil'];
 
 export default function AdminStudents() {
   const [loading, setLoading] = useState(true);
@@ -18,7 +20,11 @@ export default function AdminStudents() {
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editStudent, setEditStudent] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const PER_PAGE = 6;
 
   useEffect(() => {
@@ -55,6 +61,7 @@ export default function AdminStudents() {
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
 
   const handleDelete = async (id) => { 
+    setIsDeleting(true);
     try {
       await deleteDoc(doc(db, 'students', id));
       setStudents(prev => prev.filter(s => s.id !== id)); 
@@ -62,10 +69,13 @@ export default function AdminStudents() {
       toast.success('Student removed'); 
     } catch (err) {
       toast.error('Failed to delete student');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleSave = async (data) => {
+    setIsSaving(true);
     try {
       if (editStudent?.id) {
         await updateDoc(doc(db, 'students', editStudent.id), data);
@@ -80,6 +90,8 @@ export default function AdminStudents() {
       setModalOpen(false); setEditStudent(null);
     } catch (err) {
       toast.error('Failed to save student');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -183,7 +195,7 @@ export default function AdminStudents() {
 
       {/* Modal */}
       <AnimatePresence>
-        {modalOpen && <StudentModal student={editStudent} onClose={() => { setModalOpen(false); setEditStudent(null); }} onSave={handleSave} />}
+        {modalOpen && <StudentModal student={editStudent} onClose={() => { setModalOpen(false); setEditStudent(null); }} onSave={handleSave} isSaving={isSaving} />}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -197,10 +209,12 @@ export default function AdminStudents() {
               <h3 className="font-bold text-lg text-white mb-3">Remove Student?</h3>
               <p className="text-base mb-7" style={{ color: '#71717a' }}>This action cannot be undone.</p>
               <div className="flex gap-3">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3 rounded-xl text-sm font-medium"
-                  style={{ background: '#1c1917', color: '#a1a1aa' }}>Cancel</button>
-                <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-3 rounded-xl text-sm font-semibold text-white"
-                  style={{ background: '#ef4444' }}>Delete</button>
+                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3 rounded-xl text-sm font-medium" disabled={isDeleting}
+                  style={{ background: '#1c1917', color: '#a1a1aa', opacity: isDeleting ? 0.5 : 1 }}>Cancel</button>
+                <button onClick={() => handleDelete(deleteConfirm)} disabled={isDeleting} className="flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold text-white"
+                  style={{ background: '#ef4444', opacity: isDeleting ? 0.5 : 1 }}>
+                  {isDeleting ? <Loader2 size={16} className="animate-spin" /> : 'Delete'}
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -210,7 +224,7 @@ export default function AdminStudents() {
   );
 }
 
-function StudentModal({ student, onClose, onSave }) {
+function StudentModal({ student, onClose, onSave, isSaving }) {
   const [form, setForm] = useState({
     name: student?.name || '', email: student?.email || '', rollNumber: student?.rollNumber || '',
     department: student?.department || 'Computer Science', year: student?.year || 1,
@@ -261,10 +275,11 @@ function StudentModal({ student, onClose, onSave }) {
           </div>
         </div>
         <div className="flex gap-3 mt-7">
-          <button onClick={onClose} className="flex-1 py-3 rounded-xl text-sm font-medium" style={{ background: '#1c1917', color: '#a1a1aa' }}>Cancel</button>
-          <button onClick={() => onSave(form)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white"
-            style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)' }}>
-            <Save size={15} /> {student ? 'Update' : 'Add Student'}
+          <button onClick={onClose} disabled={isSaving} className="flex-1 py-3 rounded-xl text-sm font-medium" style={{ background: '#1c1917', color: '#a1a1aa', opacity: isSaving ? 0.5 : 1 }}>Cancel</button>
+          <button onClick={() => onSave(form)} disabled={isSaving} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-opacity"
+            style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)', opacity: isSaving ? 0.7 : 1 }}>
+            {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} 
+            {isSaving ? 'Saving...' : (student ? 'Update' : 'Add Student')}
           </button>
         </div>
       </motion.div>

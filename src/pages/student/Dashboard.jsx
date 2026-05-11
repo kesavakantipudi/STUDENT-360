@@ -24,10 +24,7 @@ const radarData = [
   { subject: 'ML', score: 84 },  { subject: 'WT', score: 91 },
 ];
 
-const activityLog = [
-  { icon: Award, text: 'Earned "DSA Master" badge', time: '2d ago', color: '#f59e0b' },
-  { icon: Award, text: 'Earned "Python Expert" badge', time: '4d ago', color: '#10b981' },
-];
+
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -199,7 +196,7 @@ export default function StudentDashboard() {
       </div>
 
       {/* Bottom row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem' }}>
 
         {/* Upcoming Exams */}
         <div className="card">
@@ -225,24 +222,6 @@ export default function StudentDashboard() {
                 </div>
               );
             })}
-          </div>
-        </div>
-
-        {/* Activity */}
-        <div className="card">
-          <span className="card-title" style={{ display: 'block', marginBottom: '1.125rem' }}>Recent Activity</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {activityLog.map((item, i) => (
-              <div key={i} style={{ display: 'flex', gap: '0.75rem' }}>
-                <div style={{ width: 30, height: 30, borderRadius: '0.5rem', background: `${item.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <item.icon size={13} style={{ color: item.color }} />
-                </div>
-                <div>
-                  <p style={{ fontSize: '0.8125rem', color: '#fafafa', lineHeight: 1.4 }}>{item.text}</p>
-                  <p style={{ fontSize: '0.6875rem', color: '#475569', marginTop: 2 }}>{item.time}</p>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </div>

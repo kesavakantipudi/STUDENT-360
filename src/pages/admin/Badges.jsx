@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { generateInitials, getAvatarColor } from '../../utils/helpers';
-import { Trophy, Star, Plus } from 'lucide-react';
+import { Trophy, Star, Plus, Loader2 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import toast from 'react-hot-toast';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
@@ -19,6 +19,8 @@ export default function AdminBadges() {
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState([]);
   const [awardedList, setAwardedList] = useState([]);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,7 +41,8 @@ export default function AdminBadges() {
 
   const awardBadge = async (studentId, badgeId) => {
     const already = awardedList.find(a => a.studentId === studentId && a.badgeId === badgeId);
-    if (already) { toast.error('Badge already awarded'); return; }
+    if (already) { toast.error('Badge already awarded'); setActiveDropdown(null); return; }
+    setIsSaving(true);
     try {
       const id = `${studentId}_${badgeId}`;
       const payload = { studentId, badgeId, awardedDate: new Date().toISOString().slice(0, 10) };
@@ -47,8 +50,11 @@ export default function AdminBadges() {
       setAwardedList(p => [...p, payload]);
       const badge = BADGES.find(b => b.id === badgeId);
       toast.success(`${badge?.name} awarded!`);
+      setActiveDropdown(null);
     } catch (e) {
       toast.error('Error awarding badge');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -120,21 +126,26 @@ export default function AdminBadges() {
                   )}
                 </div>
                 {isEligible && (
-                  <div className="relative group">
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                      style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
-                      <Plus size={12} /> Award Badge
+                  <div className="relative">
+                    <button onClick={() => setActiveDropdown(activeDropdown === student.id ? null : student.id)} 
+                      disabled={isSaving}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                      style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', opacity: isSaving ? 0.5 : 1 }}>
+                      {isSaving && activeDropdown === student.id ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} 
+                      {isSaving && activeDropdown === student.id ? 'Saving...' : 'Award Badge'}
                     </button>
-                    <div className="absolute right-0 top-full mt-1 w-44 rounded-xl overflow-hidden z-10 hidden group-hover:block"
-                      style={{ background: '#1c1917', border: '1px solid #3f3f46', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-                      {BADGES.map(b => (
-                        <button key={b.id} onClick={() => awardBadge(student.id, b.id)}
-                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 transition-all text-left">
-                          <span>{b.icon}</span>
-                          <span className="text-xs text-white">{b.name}</span>
-                        </button>
-                      ))}
-                    </div>
+                    {activeDropdown === student.id && (
+                      <div className="absolute right-0 top-full mt-2 w-48 rounded-xl overflow-hidden z-20"
+                        style={{ background: '#1c1917', border: '1px solid #3f3f46', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                        {BADGES.map(b => (
+                          <button key={b.id} onClick={() => awardBadge(student.id, b.id)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/10 transition-colors text-left">
+                            <span className="text-lg">{b.icon}</span>
+                            <span className="text-xs font-medium text-white">{b.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
