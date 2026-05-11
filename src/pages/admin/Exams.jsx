@@ -330,6 +330,20 @@ function ExamModal({ exam, onClose, onSave, isSaving }) {
         onClick={e => e.stopPropagation()} className="rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         style={{ background: '#121212', border: '1px solid #27272a', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
         
+        <style>
+          {`
+            input[type="date"]::-webkit-calendar-picker-indicator,
+            input[type="time"]::-webkit-calendar-picker-indicator {
+              filter: invert(1);
+              cursor: pointer;
+            }
+            input[type="date"]::-webkit-inner-spin-button,
+            input[type="time"]::-webkit-inner-spin-button {
+              display: none;
+            }
+          `}
+        </style>
+        
         <div className="flex items-center justify-between mb-7">
           <h3 className="font-bold text-xl text-white">{exam ? 'Edit Exam' : 'Schedule New Exam'}</h3>
           <button onClick={onClose} style={{ color: '#ffffff' }} className="hover:text-white transition-colors"><X size={24} /></button>

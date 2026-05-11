@@ -131,7 +131,7 @@ export default function AdminDashboard() {
             <span className="chart-title">College Distribution</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', height: 250 }}>
-            <ResponsiveContainer width="60%" height="100%">
+            <ResponsiveContainer width="60%" height={250}>
               <PieChart>
                 <Pie data={collegeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} innerRadius={55} paddingAngle={2}>
                   {collegeData.map((_, i) => <Cell key={i} fill={DEPT_COLORS[i % DEPT_COLORS.length]} />)}

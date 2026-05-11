@@ -121,86 +121,56 @@ const importStudents = async () => {
       throw new Error("No student data available from any source");
     }
 
-    // Smaller batch size
-    const batchSize = 25;
-
-    let batch = db.batch();
-
-    let operationCount = 0;
-
-    let totalImported = 0;
+    // Process each student (only update existing ones with missing emails)
+    let totalProcessed = 0;
+    let totalUpdated = 0;
 
     for (const student of students) {
 
       if (!student.roll_no) continue;
 
+      const rollNo = student.roll_no;
+
       const studentRef = db
         .collection("students")
-        .doc(student.roll_no);
+        .doc(rollNo);
 
-      batch.set(studentRef, {
+      // Check if student already exists
+      const existingDoc = await studentRef.get();
+      const existingData = existingDoc.exists ? existingDoc.data() : null;
 
-        rollNo: student.roll_no || null,
-
-        name: student.first_name || null,
-
-        gender: student.gender || null,
-
-        college: student.college || null,
-
-        branch: student.branch || [],
-
-        passoutYear: student.passout_year || null,
-
-        dob: student.dob || null,
-
-        section: student.section || [],
-
-        backlogs: student.backlogs || 0,
-
-        btech: student.btech || null,
-
-      });
-
-      operationCount++;
-
-      totalImported++;
-
-      // Cleaner logs
-      if (totalImported % 100 === 0) {
-
-        console.log(`${totalImported} students prepared`);
+      if (existingData) {
+        // Student exists - only update if email is missing and we have email data
+        if (!existingData.email && student.email) {
+          console.log(`📧 Adding email to existing student ${rollNo}: ${student.email}`);
+          await studentRef.update({
+            email: student.email
+          });
+          totalUpdated++;
+        } else if (!existingData.email && !student.email) {
+          console.log(`⏭️  Skipping existing student ${rollNo} (no email available from API)`);
+        } else {
+          console.log(`⏭️  Skipping existing student ${rollNo} (already has email)`);
+        }
+      } else {
+        // Student doesn't exist - SKIP CREATION to avoid duplicates
+        console.log(`⚠️  Skipping new student ${rollNo} (not in database - manual creation required)`);
       }
 
-      // Commit every 100 docs
-      if (operationCount === batchSize) {
+      totalProcessed++;
 
-        await batch.commit();
-
-        console.log(
-          `Batch committed: ${totalImported} students imported`
-        );
-
-        // Small delay to avoid quota exhaustion
-        await sleep(5000);
-
-        batch = db.batch();
-
-        operationCount = 0;
+      // Progress logging
+      if (totalProcessed % 50 === 0) {
+        console.log(`${totalProcessed} students processed, ${totalUpdated} updated`);
       }
+
+      // Small delay to avoid rate limiting
+      await sleep(100);
     }
 
-    // Commit remaining docs
-    if (operationCount > 0) {
-
-      await batch.commit();
-
-      console.log("Final batch committed");
-    }
-
-    console.log(
-      `All students imported successfully: ${totalImported}`
-    );
+    console.log(`✅ Successfully processed ${totalProcessed} students`);
+    console.log(`📧 Updated ${totalUpdated} students with emails from Maya API`);
+    console.log("🎯 Ready to update when Maya API is available! No fake emails generated.");
 
   } catch (error) {
 
