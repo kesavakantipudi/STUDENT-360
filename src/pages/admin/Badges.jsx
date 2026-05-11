@@ -77,7 +77,6 @@ export default function AdminBadges() {
       setAwardedList(p => [...p, { docId, ...payload }]);
       
       const badge = BADGES.find(b => b.id === badgeId);
-      const student = students.find(s => s.rollNo === studentRollNo);
       toast.success(`${badge?.name} awarded to ${student?.name || studentRollNo}!`);
       setActiveDropdown(null);
     } catch (e) {
