@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Edit2, Trash2, Download, X, Save, Loader2 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
-import { generateInitials, getAvatarColor, exportToCSV } from '../../utils/helpers';
+import { generateInitials, getAvatarColor, exportToCSV, calculatePlacementIndex } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import { collection, getDocs, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
@@ -28,8 +28,22 @@ export default function AdminStudents() {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'students'));
-        const studentsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const [studentsSnapshot, resultsSnapshot] = await Promise.all([
+          getDocs(collection(db, 'students')),
+          getDocs(collection(db, 'results')),
+        ]);
+
+        const resultsList = resultsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const studentsList = studentsSnapshot.docs.map(doc => {
+          const student = { id: doc.id, ...doc.data() };
+          return {
+            ...student,
+            placementIndex: calculatePlacementIndex(student, resultsList, {
+              githubStats: student.githubStats,
+            }),
+          };
+        });
+
         setStudents(studentsList);
         
         // Extract unique filters
@@ -138,7 +152,7 @@ export default function AdminStudents() {
           <table className="w-full">
             <thead>
               <tr>
-                {['Student', 'Roll No.', 'College', 'Branch', 'Backlogs', 'B.Tech %', 'Actions'].map(h => (
+                {['Student', 'Roll No.', 'College', 'Branch', 'Backlogs', 'B.Tech %', 'PI Score', 'Actions'].map(h => (
                   <th key={h} className="text-left py-3 px-4" style={{ color: '#71717a', fontWeight: 600, fontSize: '0.8125rem' }}>{h}</th>
                 ))}
               </tr>
@@ -163,6 +177,18 @@ export default function AdminStudents() {
                     <td className="py-4 px-4">{s.branch ? s.branch.join(', ') : 'N/A'}</td>
                     <td className="py-4 px-4"><span style={{ color: s.backlogs > 0 ? '#ef4444' : '#10b981', fontWeight: 600 }}>{s.backlogs || 0}</span></td>
                     <td className="py-4 px-4"><span style={{ fontWeight: 700, color: '#f59e0b' }}>{s.btech || '0'}%</span></td>
+                    <td className="py-4 px-4">
+                      <span
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold"
+                        style={{
+                          background: s.placementIndex >= 80 ? 'rgba(16,185,129,0.12)' : s.placementIndex >= 65 ? 'rgba(245,158,11,0.12)' : 'rgba(239,68,68,0.12)',
+                          color: s.placementIndex >= 80 ? '#10b981' : s.placementIndex >= 65 ? '#f59e0b' : '#ef4444',
+                          border: `1px solid ${s.placementIndex >= 80 ? 'rgba(16,185,129,0.3)' : s.placementIndex >= 65 ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                        }}
+                      >
+                        {s.placementIndex ?? 0}/100
+                      </span>
+                    </td>
                     <td className="py-4 px-4">
                       <div style={{ display: 'flex', gap: '0.375rem' }}>
                         <button onClick={() => { setEditStudent(s); setModalOpen(true); }}

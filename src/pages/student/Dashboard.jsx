@@ -5,9 +5,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import StatCard from '../../components/shared/StatCard';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import { ErrorState } from '../../components/shared/ErrorState';
-import { formatDate, getDaysUntil, getGradeColor } from '../../utils/helpers';
+import { formatDate, getDaysUntil, getGradeColor, calculatePlacementIndex } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 
 const ChartTip = ({ active, payload, label }) =>
@@ -32,6 +32,7 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [studentData, setStudentData] = useState(null);
   const [dashboardStats, setDashboardStats] = useState(null);
+  const [codingProfiles, setCodingProfiles] = useState({ leetcode: null, gfg: null, codechef: null, hackerrank: null });
   const [upcomingExams, setUpcomingExams] = useState([]);
   const [myResults, setMyResults] = useState([]);
   const [error, setError] = useState(false);
@@ -54,19 +55,42 @@ export default function StudentDashboard() {
 
         const safeFetch = async (url) => {
           try {
-            const res = await fetch(url, { method: 'POST', headers, body });
-            if (!res.ok) throw new Error('API Error');
+            const res = await fetch(url, { method: 'POST', headers, body, timeout: 10000 });
+            if (!res.ok) {
+              console.warn(`⚠️ API returned status ${res.status} for ${url}`);
+              return null;
+            }
             return await res.json();
           } catch (e) {
-            console.error('Fetch error for', url, e);
-            throw e; // Throw to the outer catch block
+            console.warn(`⚠️ Fetch failed for ${url}:`, e.message);
+            return null;
           }
         };
 
-        const [studentJson, statsJson] = await Promise.all([
+        const [studentJson, statsJson, lc, gfg, cc, hr] = await Promise.all([
           safeFetch('/api/get-student-by-rollno'),
-          safeFetch('/api/get-student-problems-count-dashboard')
+          safeFetch('/api/get-student-problems-count-dashboard'),
+          safeFetch('/api/get-leetcode-details-by-rollno'),
+          safeFetch('/api/get-geeksforgeeks-details-by-rollno'),
+          safeFetch('/api/get-codechef-details-by-rollno'),
+          safeFetch('/api/get-hackerrank-details-by-rollno')
         ]);
+
+        // If primary API failed, try Firestore fallback for student data
+        let finalStudentData = studentJson;
+        if (!studentJson) {
+          console.log('📚 API unavailable, fetching from Firestore...');
+          try {
+            const docRef = doc(db, 'students', rollNo);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              finalStudentData = docSnap.data();
+              console.log('✅ Student data retrieved from Firestore');
+            }
+          } catch (firestoreErr) {
+            console.error('❌ Firestore fallback failed:', firestoreErr);
+          }
+        }
 
         // Fetch upcoming exams from Firestore
         const querySnapshot = await getDocs(collection(db, 'exams'));
@@ -84,11 +108,12 @@ export default function StudentDashboard() {
         const resArr = resSnap.docs.map(d => d.data());
         const userRes = resArr.filter(r => r.rollNo === rollNo);
         setMyResults(userRes);
+        setCodingProfiles({ leetcode: lc, gfg, codechef: cc, hackerrank: hr });
 
-        if (studentJson) setStudentData(studentJson);
+        if (finalStudentData) setStudentData(finalStudentData);
         if (statsJson) setDashboardStats(statsJson);
       } catch (err) {
-        console.error("Error fetching dashboard data", err);
+        console.error("❌ Error fetching dashboard data", err);
         setError(true);
       } finally {
         setLoading(false);
@@ -119,6 +144,10 @@ export default function StudentDashboard() {
   const studentDept = studentData?.branch?.[0] || 'No branch assigned';
   const studentYear = studentData?.passout_year || '';
   const studentRoll = studentData?.roll_no || rollNo;
+  const placementIndex = calculatePlacementIndex(studentData, myResults, {
+    codingProfiles,
+    githubStats: studentData?.githubStats,
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -157,6 +186,7 @@ export default function StudentDashboard() {
       <div className="stat-grid">
         <StatCard title="Total Problems"  value={dashboardStats?.total || 0} subtitle="Across all platforms" icon={Code} color="#f97316" trend="up" trendValue={`${dashboardStats?.easy || 0} Easy`} delay={0} />
         <StatCard title="Coding Rank"     value={dashboardStats?.rank ? `#${dashboardStats.rank}` : 'N/A'} subtitle="Global Rank" icon={Trophy} color="#06b6d4" trend="up" trendValue={`${dashboardStats?.score || 0} pts`} delay={0.08} />
+        <StatCard title="PI Score"        value={`${placementIndex}/100`} subtitle="Placement Index" icon={Award} color="#10b981" trend={placementIndex >= 80 ? 'up' : placementIndex >= 65 ? 'none' : 'down'} trendValue={placementIndex >= 80 ? 'Excellent' : placementIndex >= 65 ? 'Good' : 'Needs work'} delay={0.12} />
         <StatCard title="Active Courses"  value={studentData?.current_courses?.length || 0} subtitle="Currently Enrolled" icon={BookOpen} color="#f59e0b" trend="none" trendValue="" delay={0.16} />
         <StatCard title="Upcoming Exams"  value={upcomingExams.length} subtitle="Next: May 20" icon={Calendar} color="#10b981" trend="up" trendValue="3 due" delay={0.24} />
       </div>

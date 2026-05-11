@@ -11,6 +11,8 @@ export default function ViolationsPage() {
   const { user } = useAuth();
   const rollNo = user?.email ? user.email.split('@')[0].toUpperCase() : '';
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [violations, setViolations] = useState([]);
 
   useEffect(() => {

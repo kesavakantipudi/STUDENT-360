@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Calendar, Clock, BookOpen, ChevronRight, Edit2, Trash2, ShieldAlert, Monitor, UserCheck, Code, Save, X, Loader2 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import { formatDate, getDifficultyColor, getExamStatusColor } from '../../utils/helpers';
+import { generateExamCode } from '../../utils/generateExamCode';
 import toast from 'react-hot-toast';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 
 export default function AdminExams() {
@@ -57,22 +58,112 @@ export default function AdminExams() {
     }
   };
 
+  /**
+   * Fetch all eligible students from the students collection
+   */
+  const fetchStudents = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'students'));
+      const students = [];
+      querySnapshot.forEach((doc) => {
+        students.push({ ...doc.data() });
+      });
+      return students;
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      throw new Error('Failed to fetch students for exam invites');
+    }
+  };
+
+  /**
+   * Create exam invites for all students
+   * Generates a unique 6-digit code for each student and stores in examInvites collection
+   */
+  const createExamInvites = async (students, examId, examTitle) => {
+    try {
+      const powerAutomateUrl = import.meta.env.VITE_POWER_AUTOMATE_URL;
+      
+      if (!powerAutomateUrl) {
+        console.warn('VITE_POWER_AUTOMATE_URL is not configured. Invites will be created but emails will not be sent.');
+      }
+
+      for (const student of students) {
+        const code = generateExamCode();
+
+        // Create invite record in Firestore
+        await addDoc(collection(db, 'examInvites'), {
+          rollNo: student.rollNo || '',
+          email: student.email || '',
+          examId,
+          examCode: code,
+          status: 'Pending',
+          createdAt: new Date(),
+        });
+
+        // Send to Power Automate if URL is configured
+        if (powerAutomateUrl) {
+          try {
+            await fetch(powerAutomateUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email: student.email,
+                name: student.name || student.rollNo,
+                examTitle,
+                examCode: code,
+              }),
+            });
+            console.log(`Email sent to ${student.email} with code ${code}`);
+          } catch (error) {
+            console.error(`Failed to send email to ${student.email}:`, error);
+            // Don't throw - continue with other students
+          }
+        }
+      }
+
+      console.log(`Successfully created exam invites for ${students.length} students`);
+      toast.success(`Exam invites created for ${students.length} students`);
+    } catch (error) {
+      console.error('Error creating exam invites:', error);
+      throw error;
+    }
+  };
+
   const handleSave = async (data) => {
     setIsSaving(true);
     try {
       if (editExam?.id) {
+        // Updating existing exam
         const examRef = doc(db, 'exams', editExam.id);
         await updateDoc(examRef, data);
         setExams(p => p.map(e => e.id === editExam.id ? { ...e, ...data } : e));
         toast.success('Exam updated');
       } else {
+        // Creating new exam - generate invites for all students
         const docRef = await addDoc(collection(db, 'exams'), { ...data, examLink: '#' });
         setExams(p => [{ ...data, id: docRef.id, examLink: '#' }, ...p]);
         toast.success('Exam scheduled');
+
+        // Fetch students and create exam invites
+        try {
+          const students = await fetchStudents();
+          if (students.length > 0) {
+            await createExamInvites(students, docRef.id, data.title);
+          } else {
+            console.warn('No students found to create invites for');
+            toast.info('No students available for exam invites');
+          }
+        } catch (error) {
+          console.error('Error creating exam invites:', error);
+          toast.error('Exam created but invite generation failed');
+        }
       }
       setModalOpen(false);
       setEditExam(null);
     } catch (error) {
+      console.error('Error saving exam:', error);
       toast.error('Failed to save exam');
     } finally {
       setIsSaving(false);

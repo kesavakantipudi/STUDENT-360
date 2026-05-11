@@ -58,24 +58,23 @@ export default function LoginPage() {
 
       // SAVE USER TO FIRESTORE
       try {
-        await setDoc(
-          doc(db, 'students', user.uid),
-          {
-            uid: user.uid,
-            name: user.displayName || '',
-            email: user.email || '',
-            photo: user.photoURL || '',
-            role: 'student',
+        const rollNo = user.email.split('@')[0].toUpperCase();
+        const studentRef = doc(db, 'students', rollNo);
+        const studentSnap = await getDoc(studentRef);
 
-            createdAt: serverTimestamp(),
+        if (studentSnap.exists()) {
+          await updateDoc(studentRef, {
+            email: user.email,
             lastLogin: serverTimestamp(),
-          },
-          { merge: true }
-        );
+            uid: user.uid,
+            photo: user.photoURL || "",
+          });
+        } else {
+          toast.error("Student record not found in the database. Please contact Admin.");
+          // We should ideally sign them out or prevent login, but we'll follow the user's logic
+        }
       } catch (dbError) {
         console.error('Firestore Save Error:', dbError);
-        // Note: We don't block the login flow here. If permission is denied,
-        // it means your Firebase Firestore security rules might be blocking the write.
       }
 
       setAuthData(

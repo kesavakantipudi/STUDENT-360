@@ -3,10 +3,10 @@ import { motion } from 'framer-motion';
 import { User, BookOpen, Code, Edit3, Save, X, Trophy, Star, ExternalLink } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import { ErrorState } from '../../components/shared/ErrorState';
-import { generateInitials, getAvatarColor } from '../../utils/helpers';
+import { generateInitials, getAvatarColor, calculatePlacementIndex } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 
 export default function ProfilePage() {
@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [studentData, setStudentData] = useState(null);
+  const [studentResults, setStudentResults] = useState([]);
   const [codingProfiles, setCodingProfiles] = useState({ leetcode: null, gfg: null, codechef: null, hackerrank: null });
   const [form, setForm] = useState({ phone: '', githubUrl: '' });
   const [githubConnected, setGithubConnected] = useState(false);
@@ -30,15 +31,19 @@ export default function ProfilePage() {
         
         const safeFetch = async (url) => {
           try {
-            const res = await fetch(url, { method: 'POST', headers, body });
-            if (!res.ok) throw new Error('API Error');
+            const res = await fetch(url, { method: 'POST', headers, body, timeout: 10000 });
+            if (!res.ok) {
+              console.warn(`⚠️ API returned status ${res.status} for ${url}`);
+              return null;
+            }
             return await res.json();
           } catch (e) {
-            console.error('Fetch error for', url, e);
-            throw e;
+            console.warn(`⚠️ Fetch failed for ${url}:`, e.message);
+            return null;
           }
         };
 
+        // Try all APIs in parallel with timeout
         const [studentJson, lc, gfg, cc, hr] = await Promise.all([
           safeFetch('/api/get-student-by-rollno'),
           safeFetch('/api/get-leetcode-details-by-rollno'),
@@ -47,8 +52,39 @@ export default function ProfilePage() {
           safeFetch('/api/get-hackerrank-details-by-rollno')
         ]);
 
-        if (studentJson) setStudentData(studentJson);
-        setCodingProfiles({ leetcode: lc, gfg: gfg, codechef: cc, hackerrank: hr });
+        // If primary API failed, try Firestore fallback
+        let finalStudentData = studentJson;
+        if (!studentJson) {
+          console.log('📚 API unavailable, fetching from Firestore...');
+          try {
+            const docRef = doc(db, 'students', rollNo);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              finalStudentData = docSnap.data();
+              console.log('✅ Student data retrieved from Firestore');
+            }
+          } catch (firestoreErr) {
+            console.error('❌ Firestore fallback failed:', firestoreErr);
+          }
+        }
+
+        if (finalStudentData) setStudentData(finalStudentData);
+
+        // Fetch results for PI score calculation
+        try {
+          const resultsQuery = query(collection(db, 'results'), where('rollNo', '==', rollNo));
+          const resultsSnap = await getDocs(resultsQuery);
+          setStudentResults(resultsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        } catch (resultsErr) {
+          console.warn('⚠️ Failed to load student results for PI score:', resultsErr);
+        }
+
+        setCodingProfiles({ 
+          leetcode: lc, 
+          gfg: gfg, 
+          codechef: cc, 
+          hackerrank: hr 
+        });
 
         // Fetch Firestore profile data
         let firestoreGithubUrl = '';
@@ -62,9 +98,11 @@ export default function ProfilePage() {
           }
         }
 
-        if (studentJson) setForm({ phone: studentJson.mobile || '', githubUrl: firestoreGithubUrl });
+        if (finalStudentData) {
+          setForm({ phone: finalStudentData.mobile || '', githubUrl: firestoreGithubUrl });
+        }
       } catch (err) {
-        console.error("Profile fetch error:", err);
+        console.error("❌ Profile fetch error:", err);
         setError(true);
       } finally {
         setLoading(false);
@@ -85,6 +123,10 @@ export default function ProfilePage() {
 
   const initials = generateInitials(studentData?.first_name || user?.name || '');
   const avatarColor = getAvatarColor(studentData?.first_name || user?.name || '');
+  const placementIndex = calculatePlacementIndex(studentData, studentResults, {
+    codingProfiles,
+    githubStats: studentData?.githubStats,
+  });
 
   const handleSave = async () => {
     setLoading(true);
@@ -132,7 +174,7 @@ export default function ProfilePage() {
       {/* Profile banner card */}
       <div className="rounded-2xl p-8" style={{ background: '#121212', border: '1px solid #27272a' }}>
         <div className="flex items-start gap-7">
-          <motion.div whileHover={{ scale: 1.05 }} className="relative flex-shrink-0">
+          <motion.div whileHover={{ scale: 1.05 }} className="relative shrink-0">
             <div
               className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-xl overflow-hidden"
               style={{ background: `linear-gradient(135deg, ${avatarColor}, ${avatarColor}88)` }}
@@ -221,6 +263,7 @@ export default function ProfilePage() {
             <InfoRow label="College" value={studentData?.college} />
             <InfoRow label="Department" value={studentData?.branch?.join(', ')} />
             <InfoRow label="Passout Year" value={studentData?.passout_year} />
+            <InfoRow label="PI Score" value={`${placementIndex}/100`} />
           </div>
         </div>
       </div>
@@ -361,7 +404,7 @@ export default function ProfilePage() {
 function InfoRow({ label, value }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2" style={{ borderBottom: '1px solid #1c1917' }}>
-      <span className="text-xs font-medium flex-shrink-0" style={{ color: '#71717a' }}>{label}</span>
+      <span className="text-xs font-medium shrink-0" style={{ color: '#71717a' }}>{label}</span>
       <span className="text-xs text-white text-right font-medium">{value}</span>
     </div>
   );
