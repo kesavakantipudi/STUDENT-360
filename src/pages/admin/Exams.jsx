@@ -332,14 +332,19 @@ function ExamModal({ exam, onClose, onSave, isSaving }) {
         
         <style>
           {`
-            input[type="date"]::-webkit-calendar-picker-indicator,
-            input[type="time"]::-webkit-calendar-picker-indicator {
-              filter: invert(1);
-              cursor: pointer;
+            input[type="date"],
+            input[type="time"] {
+              color-scheme: dark;
+              accent-color: #f97316;
+              font-size: 1em;
             }
-            input[type="date"]::-webkit-inner-spin-button,
-            input[type="time"]::-webkit-inner-spin-button {
+            .custom-date::-webkit-calendar-picker-indicator,
+            .custom-time::-webkit-calendar-picker-indicator {
               display: none;
+            }
+            .custom-date,
+            .custom-time {
+              padding-right: 2.5rem !important;
             }
           `}
         </style>
@@ -376,21 +381,23 @@ function ExamModal({ exam, onClose, onSave, isSaving }) {
 
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Date <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <input type="date" min={today} value={form.date} onChange={set('date')}
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none pl-10"
-                style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} required />
-              <Calendar size={16} className="absolute left-3.5 top-3.5 pointer-events-none" style={{ color: '#ffffff' }} />
+            <div className="relative" style={{ borderRadius: '12px' }}>
+              <input type="date" min={today} value={form.date} onChange={set('date')} ref={el => window.dateInput = el}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none pl-10 custom-date cursor-pointer"
+                style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa', paddingRight: '2.5rem' }} required />
+              <Calendar size={16} className="absolute left-3.5 top-3.5 pointer-events-none" style={{ color: '#ffffff', zIndex: 10 }} />
+              <Calendar size={16} className="absolute right-3 top-3.5 cursor-pointer" style={{ color: '#f97316', zIndex: 11 }} onClick={() => window.dateInput?.click()} />
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Time <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <input type="time" value={form.time} onChange={set('time')}
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none pl-10"
-                style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} required />
-              <Clock size={16} className="absolute left-3.5 top-3.5 pointer-events-none" style={{ color: '#ffffff' }} />
+            <div className="relative" style={{ borderRadius: '12px' }}>
+              <input type="time" value={form.time} onChange={set('time')} ref={el => window.timeInput = el}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none pl-10 custom-time cursor-pointer"
+                style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa', paddingRight: '2.5rem' }} required />
+              <Clock size={16} className="absolute left-3.5 top-3.5 pointer-events-none" style={{ color: '#ffffff', zIndex: 10 }} />
+              <Clock size={16} className="absolute right-3 top-3.5 cursor-pointer" style={{ color: '#f97316', zIndex: 11 }} onClick={() => window.timeInput?.click()} />
             </div>
           </div>
 
