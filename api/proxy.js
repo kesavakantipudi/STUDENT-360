@@ -17,8 +17,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing path parameter' });
   }
 
-  // Disable SSL verification for the backend because it currently has an invalid cert
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  // NOTE: Do not disable SSL verification in production. Use a valid backend certificate or a trusted reverse proxy.
 
   const targetUrl = `https://maya.technicalhub.io/node/api/${targetPath}`;
 

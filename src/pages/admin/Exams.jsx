@@ -79,6 +79,22 @@ export default function AdminExams() {
    * Create exam invites for all students
    * Generates a unique 6-digit code for each student and stores in examInvites collection
    */
+  const getUniqueExamCode = async () => {
+    const maxAttempts = 12;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      const code = generateExamCode();
+      const existing = await getDocs(query(collection(db, 'examInvites'), where('examCode', '==', code)));
+      if (existing.empty) {
+        return code;
+      }
+      attempts += 1;
+    }
+
+    throw new Error('Unable to generate a unique exam code after several attempts. Please retry.');
+  };
+
   const createExamInvites = async (students, examId, examTitle) => {
     try {
       const powerAutomateUrl = import.meta.env.VITE_POWER_AUTOMATE_URL;
@@ -88,7 +104,7 @@ export default function AdminExams() {
       }
 
       for (const student of students) {
-        const code = generateExamCode();
+        const code = await getUniqueExamCode();
 
         // Create invite record in Firestore
         await addDoc(collection(db, 'examInvites'), {

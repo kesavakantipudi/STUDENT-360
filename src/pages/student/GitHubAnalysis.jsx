@@ -74,7 +74,11 @@ export default function GitHubAnalysisPage() {
       }
 
       // 2. Fetch from GitHub API
-      const headers = { 'Accept': 'application/vnd.github.v3+json' };
+      const githubToken = import.meta.env.VITE_GITHUB_TOKEN;
+      const headers = {
+        'Accept': 'application/vnd.github.v3+json',
+        ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {})
+      };
       
       const [profileRes, reposRes] = await Promise.all([
         fetch(`https://api.github.com/users/${username}`, { headers }),

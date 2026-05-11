@@ -39,6 +39,18 @@ STUDENT 360 is a modern, premium web application designed to monitor and analyze
    cd Student-360TestingApp-main
    ```
 
+2. Copy environment variables from `.env.example` and fill in your Firebase and Power Automate values:
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Install dependencies and start the app:
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+
 2. Install dependencies:
    ```bash
    npm install
