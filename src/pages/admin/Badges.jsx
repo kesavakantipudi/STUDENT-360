@@ -60,10 +60,12 @@ export default function AdminBadges() {
 
     setIsSaving(true);
     try {
+      const student = students.find(s => s.rollNo === studentRollNo);
       const docId = `${studentRollNo}_${badgeId}`;
       const payload = { 
+        studentId: student?.id || null,
         studentRollNo,
-        studentName: students.find(s => s.rollNo === studentRollNo)?.name || studentRollNo,
+        studentName: student?.name || studentRollNo,
         badgeId, 
         awardedDate: new Date().toISOString().slice(0, 10),
         awardedAt: new Date().toISOString()

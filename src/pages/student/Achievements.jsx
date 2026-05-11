@@ -82,14 +82,24 @@ export default function AchievementsPage() {
     if (!rollNo) return;
     const fetchBadges = async () => {
       try {
-        // Find student doc to get internal ID, or just query by rollNo if badge collection uses rollNo.
-        // Wait, AdminBadges uses student.id for awarding. Let's just query by studentId for all students and filter by our own id or rollNo.
         const studSnap = await getDocs(query(collection(db, 'students'), where('rollNo', '==', rollNo)));
+        let badgeDocs = [];
+
         if (!studSnap.empty) {
           const studentId = studSnap.docs[0].id;
           const awSnap = await getDocs(query(collection(db, 'awardedBadges'), where('studentId', '==', studentId)));
-          setStudentBadgeIds(awSnap.docs.map(d => d.data()));
+          badgeDocs = awSnap.docs.map(d => d.data());
+
+          if (badgeDocs.length === 0) {
+            const rollSnap = await getDocs(query(collection(db, 'awardedBadges'), where('studentRollNo', '==', rollNo)));
+            badgeDocs = rollSnap.docs.map(d => d.data());
+          }
+        } else {
+          const rollSnap = await getDocs(query(collection(db, 'awardedBadges'), where('studentRollNo', '==', rollNo)));
+          badgeDocs = rollSnap.docs.map(d => d.data());
         }
+
+        setStudentBadgeIds(badgeDocs);
       } catch (err) {
         console.error(err);
       } finally {

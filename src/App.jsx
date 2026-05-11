@@ -95,6 +95,7 @@ export default function App() {
               <Route path="violations" element={<AdminViolations />} />
               <Route path="github" element={<AdminGitHub />} />
               <Route path="badges" element={<AdminBadges />} />
+              <Route path="achievements" element={<AdminBadges />} />
               <Route path="notifications" element={<AdminNotifications />} />
             </Route>
 
