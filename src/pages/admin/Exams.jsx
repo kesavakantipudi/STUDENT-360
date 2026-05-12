@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { Search, Plus, Calendar, Clock, BookOpen, ChevronRight, Edit2, Trash2, ShieldAlert, Monitor, UserCheck, Code, Save, X, Loader2 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import { formatDate, getDifficultyColor, getExamStatusColor } from '../../utils/helpers';
@@ -322,16 +323,19 @@ function ExamModal({ exam, onClose, onSave, isSaving }) {
     onSave(form);
   };
 
-  return (
+  return createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }} onClick={onClose}>
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-        onClick={e => e.stopPropagation()} className="rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-        style={{ background: '#121212', border: '1px solid #27272a', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+        onClick={e => e.stopPropagation()} className="rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar"
+        style={{ background: '#0a0a0a', border: '1px solid #27272a', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}>
         
         <style>
           {`
+            .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+            .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+            .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
             input[type="date"],
             input[type="time"] {
               color-scheme: dark;
@@ -350,21 +354,21 @@ function ExamModal({ exam, onClose, onSave, isSaving }) {
         
         <div className="flex items-center justify-between mb-7">
           <h3 className="font-bold text-xl text-white">{exam ? 'Edit Exam' : 'Schedule New Exam'}</h3>
-          <button onClick={onClose} style={{ color: '#ffffff' }} className="hover:text-white transition-colors"><X size={24} /></button>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors"><X size={24} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="md:col-span-2">
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Exam Title <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Exam Title <span className="text-red-500">*</span></label>
             <input value={form.title} onChange={set('title')} className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/50"
               placeholder="e.g. Mid-Term Data Structures Assessment"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} required />
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} required />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Exam Type</label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Exam Type</label>
             <select value={form.examType} onChange={set('examType')} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }}>
               <option value="MCQ">MCQ (Multiple Choice)</option>
               <option value="Coding">Coding</option>
               <option value="AI Interview">AI Interview</option>
@@ -372,30 +376,30 @@ function ExamModal({ exam, onClose, onSave, isSaving }) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Subject</label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Subject</label>
             <input value={form.subject} onChange={set('subject')} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
               placeholder="e.g. Computer Science"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} />
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Date <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Date <span className="text-red-500">*</span></label>
             <input type="date" min={today} value={form.date} onChange={set('date')}
               className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} required />
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} required />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Time <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Time <span className="text-red-500">*</span></label>
             <input type="time" value={form.time} onChange={set('time')}
               className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} required />
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} required />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Duration</label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Duration</label>
             <select value={form.duration} onChange={set('duration')} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }}>
               <option value="30 Minutes">30 Minutes</option>
               <option value="45 Minutes">45 Minutes</option>
               <option value="1 Hour">1 Hour</option>
@@ -406,37 +410,37 @@ function ExamModal({ exam, onClose, onSave, isSaving }) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Total Marks</label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Total Marks</label>
             <input type="number" min="0" value={form.totalMarks} onChange={set('totalMarks')}
               className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} />
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Difficulty</label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Difficulty</label>
             <select value={form.difficulty} onChange={set('difficulty')} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }}>
               {['Easy', 'Medium', 'Hard'].map(d => <option key={d}>{d}</option>)}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Status</label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Status</label>
             <select value={form.status} onChange={set('status')} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }}>
               {['upcoming', 'scheduled', 'completed'].map(d => <option key={d} value={d} className="capitalize">{d}</option>)}
             </select>
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#ffffff' }}>Syllabus Topics</label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Syllabus Topics</label>
             <textarea value={form.syllabus} onChange={set('syllabus')} className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none h-24"
               placeholder="E.g., Arrays, Strings, Dynamic Programming..."
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} />
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} />
           </div>
 
           <div className="md:col-span-2 flex gap-3 mt-4 pt-4 border-t border-zinc-800">
-            <button type="button" onClick={onClose} disabled={isSaving} className="flex-1 py-3.5 rounded-xl text-sm font-medium transition-colors hover:bg-zinc-800" style={{ background: '#1c1917', color: '#a1a1aa', opacity: isSaving ? 0.5 : 1 }}>
+            <button type="button" onClick={onClose} disabled={isSaving} className="flex-1 py-3.5 rounded-xl text-sm font-medium transition-colors hover:bg-zinc-800 bg-zinc-900 text-zinc-400" style={{ opacity: isSaving ? 0.5 : 1 }}>
               Cancel
             </button>
             <button type="submit" disabled={isSaving} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.02]"
@@ -446,6 +450,7 @@ function ExamModal({ exam, onClose, onSave, isSaving }) {
           </div>
         </form>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }

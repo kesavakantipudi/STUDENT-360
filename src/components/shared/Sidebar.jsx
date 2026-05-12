@@ -83,29 +83,6 @@ export default function Sidebar() {
           )}
         </AnimatePresence>
 
-        {/* Collapse toggle */}
-        <button
-          onClick={toggleSidebar}
-          style={{
-            marginLeft: 'auto',
-            flexShrink: 0,
-            width: 28,
-            height: 28,
-            borderRadius: '0.5rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#475569',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-        >
-          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
       </div>
 
       {/* ── Role badge ─────────────────────────── */}

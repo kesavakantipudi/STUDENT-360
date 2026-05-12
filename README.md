@@ -105,7 +105,71 @@ The app expects the following collections:
 - **violations** - Student behavior violations
 - **achievements** - Student achievement badges
 
-## 🚀 Deployment
+## � Result Submission API (Electron App Integration)
+
+The platform supports result submission from Electron-based exam applications. Results are automatically stored in Firestore and made available in the admin and student portals.
+
+### API Endpoints
+
+- **POST** `/api/submit-result` - Submit exam results from Electron app
+- **GET** `/api/results/student/{rollNo}` - Get results for a specific student
+- **GET** `/api/results/exam/{examId}` - Get results for a specific exam
+
+### Result Data Structure
+
+```javascript
+{
+  rollNo: "12345",           // Student roll number
+  studentName: "John Doe",   // Student full name
+  subject: "Data Structures", // Exam subject
+  marks: 85,                 // Marks obtained
+  totalMarks: 100,           // Total marks
+  examId: "exam_001",        // Unique exam identifier
+  examTitle: "DS Mid-term",  // Exam title
+  startTime: "2024-01-15T10:00:00Z", // ISO timestamp
+  endTime: "2024-01-15T11:30:00Z",   // ISO timestamp
+  answers: [                 // Array of question answers
+    {
+      questionId: "q1",
+      answer: "A",
+      correct: true,
+      timeSpent: 120
+    }
+  ],
+  violations: [              // Array of exam violations
+    {
+      type: "tab_switch",
+      timestamp: "2024-01-15T10:15:00Z",
+      description: "Switched to another tab"
+    }
+  ]
+}
+```
+
+### Electron App Integration Example
+
+```javascript
+// Submit result from Electron app
+const submitResult = async (resultData) => {
+  const response = await fetch('https://your-domain.vercel.app/api/submit-result', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(resultData)
+  });
+  
+  const result = await response.json();
+  return result; // { success: true, resultId: "..." }
+};
+```
+
+### Result Processing
+
+- **Automatic Grading:** Grades (A+, A, B+, etc.) are calculated based on percentage
+- **Status Calculation:** Pass/Fail status based on 40% threshold
+- **Student History:** Results are added to student's exam history
+- **Source Tracking:** Results from Electron apps are marked with `source: 'electron_app'`
+
+## �🚀 Deployment
 
 ### Deploy to Vercel
 

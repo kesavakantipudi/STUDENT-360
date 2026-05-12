@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { Bell, Plus, Send, X, Save, Loader2 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import { formatDate } from '../../utils/helpers';
@@ -60,11 +61,21 @@ export default function AdminNotifications() {
           <h1 className="text-2xl font-bold text-white">Notifications</h1>
           <p className="text-sm mt-1" style={{ color: '#71717a' }}>Manage and send institutional notifications</p>
         </div>
-        <button onClick={() => setComposeOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
-          style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)' }}>
-          <Plus size={15} /> Compose
-        </button>
+        <motion.button 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            console.log('Compose clicked');
+            setComposeOpen(true);
+          }}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg relative z-10"
+          style={{ 
+            background: 'linear-gradient(135deg, #f97316, #f59e0b)',
+            cursor: 'pointer'
+          }}
+        >
+          <Plus size={18} /> Compose Broadcast
+        </motion.button>
       </div>
 
       <div className="space-y-3">
@@ -96,52 +107,71 @@ export default function AdminNotifications() {
 
       <AnimatePresence>
         {composeOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.7)' }} onClick={() => setComposeOpen(false)}>
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
-              onClick={e => e.stopPropagation()}
-              className="rounded-2xl p-6 w-full max-w-md"
-              style={{ background: '#121212', border: '1px solid #27272a' }}>
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="font-bold text-white">Compose Notification</h3>
-                <button onClick={() => setComposeOpen(false)} style={{ color: '#71717a' }}><X size={18} /></button>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#71717a' }}>Title</label>
-                  <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl text-sm"
-                    style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#71717a' }}>Type</label>
-                  <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl text-sm"
-                    style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
-                    {Object.keys(TYPE_COLORS).map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#71717a' }}>Message</label>
-                  <textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-                    rows={3} className="w-full px-3 py-2.5 rounded-xl text-sm resize-none"
-                    style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setComposeOpen(false)} disabled={isSaving} className="flex-1 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors"
-                  style={{ background: '#1c1917', color: '#a1a1aa', opacity: isSaving ? 0.5 : 1 }}>Cancel</button>
-                <button onClick={handleSend} disabled={isSaving} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-opacity"
-                  style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)', opacity: isSaving ? 0.7 : 1 }}>
-                  {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} 
-                  {isSaving ? 'Sending...' : 'Send Broadcast'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
+          <ComposeModal 
+            onClose={() => setComposeOpen(false)} 
+            onSend={handleSend} 
+            isSaving={isSaving} 
+            form={form} 
+            setForm={setForm}
+            TYPE_COLORS={TYPE_COLORS}
+          />
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function ComposeModal({ onClose, onSend, isSaving, form, setForm, TYPE_COLORS }) {
+  return createPortal(
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }} onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+        onClick={e => e.stopPropagation()}
+        className="rounded-2xl p-8 w-full max-w-md"
+        style={{ background: '#0a0a0a', border: '1px solid #27272a', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}>
+        
+        <div className="flex items-center justify-between mb-7">
+          <h3 className="font-bold text-xl text-white">Compose Broadcast</h3>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors"><X size={24} /></button>
+        </div>
+        
+        <div className="space-y-5">
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Notification Title</label>
+            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              placeholder="e.g. Important: Technical Interview Rescheduled"
+              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/30"
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Broadcast Type</label>
+            <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+              className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }}>
+              {Object.keys(TYPE_COLORS).map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Message Content</label>
+            <textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+              rows={4} placeholder="Type your message here..."
+              className="w-full px-4 py-3 rounded-xl text-sm resize-none outline-none transition-all focus:ring-2 focus:ring-orange-500/30"
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} />
+          </div>
+        </div>
+        
+        <div className="flex gap-3 mt-8 pt-4 border-t border-zinc-800">
+          <button onClick={onClose} disabled={isSaving} className="flex-1 py-3.5 rounded-xl text-sm font-medium hover:bg-zinc-800 bg-zinc-900 text-zinc-400"
+            style={{ opacity: isSaving ? 0.5 : 1 }}>Cancel</button>
+          <button onClick={onSend} disabled={isSaving} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02]"
+            style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)', opacity: isSaving ? 0.7 : 1 }}>
+            {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} 
+            {isSaving ? 'Sending...' : 'Send Broadcast'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body
   );
 }

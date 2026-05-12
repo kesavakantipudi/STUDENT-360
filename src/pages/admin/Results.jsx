@@ -10,12 +10,19 @@ import { db } from '../../firebase/firebase';
 export default function AdminResults() {
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState([]);
+  const [filter, setFilter] = useState('all'); // all, electron_app, manual
 
   useEffect(() => {
     const fetchResults = async () => {
       try {
         const snap = await getDocs(collection(db, 'results'));
-        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by source if specified
+        if (filter !== 'all') {
+          list = list.filter(r => r.source === filter);
+        }
+
         setResults(list);
       } catch (err) {
         toast.error("Failed to load results");
@@ -24,7 +31,7 @@ export default function AdminResults() {
       }
     };
     fetchResults();
-  }, []);
+  }, [filter]);
 
   if (loading) return <LoadingSkeleton type="table" rows={5} />;
 
@@ -49,19 +56,37 @@ export default function AdminResults() {
         </div>
       </div>
 
+      {/* Filter buttons */}
+      <div className="flex gap-2.5">
+        {[
+          { key: 'all', label: 'All Results', count: results.length },
+          { key: 'electron_app', label: 'Electron App', count: results.filter(r => r.source === 'electron_app').length },
+          { key: 'manual', label: 'Manual Entry', count: results.filter(r => r.source === 'manual').length }
+        ].map(f => (
+          <button key={f.key} onClick={() => setFilter(f.key)}
+            className="px-4 py-2.5 rounded-xl text-sm font-medium capitalize transition-all"
+            style={filter === f.key
+              ? { background: 'rgba(249, 115, 22,0.2)', color: '#fdba74', border: '1px solid rgba(249, 115, 22,0.4)' }
+              : { color: '#71717a', border: '1px solid #27272a' }
+            }>
+            {f.label} ({f.count})
+          </button>
+        ))}
+      </div>
+
       <div className="rounded-2xl overflow-hidden" style={{ background: '#121212', border: '1px solid #27272a' }}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr style={{ background: '#0a0a0a' }}>
-                {['Student', 'Subject', 'Marks', 'Total', 'Percentage', 'Grade', 'Status', 'Date'].map(h => (
+                {['Student', 'Subject', 'Marks', 'Total', 'Percentage', 'Grade', 'Status', 'Source', 'Date'].map(h => (
                   <th key={h} className="text-left px-6 py-4 text-sm font-semibold" style={{ color: '#71717a' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {results.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-16 text-base" style={{ color: '#71717a' }}>No results found</td></tr>
+                <tr><td colSpan={9} className="text-center py-16 text-base" style={{ color: '#71717a' }}>No results found</td></tr>
               ) : results.map((r, i) => {
                 const color = getGradeColor(r.grade);
                 return (
@@ -84,9 +109,16 @@ export default function AdminResults() {
                       <span className="text-sm px-3 py-1.5 rounded-full font-bold" style={{ background: `${color}20`, color }}>{r.grade}</span>
                     </td>
                     <td className="px-6 py-5">
-                      <span className="text-sm px-3 py-1.5 rounded-full font-semibold status-active">Passed</span>
+                      <span className="text-sm px-3 py-1.5 rounded-full font-semibold status-active">{r.status === 'passed' ? 'Passed' : 'Failed'}</span>
                     </td>
-                    <td className="px-6 py-5 text-sm" style={{ color: '#71717a' }}>{formatDate(r.date)}</td>
+                    <td className="px-6 py-5">
+                      <span className={`text-sm px-3 py-1.5 rounded-full font-medium ${
+                        r.source === 'electron_app' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {r.source === 'electron_app' ? 'Electron App' : 'Manual'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-sm" style={{ color: '#71717a' }}>{formatDate(r.date || r.submittedAt)}</td>
                   </motion.tr>
                 );
               })}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { Plus, Edit2, Trash2, X, Save, AlertTriangle, Loader2 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import { formatDate, getSeverityClass, getStatusClass } from '../../utils/helpers';
@@ -83,11 +84,22 @@ export default function AdminViolations() {
           <h1 className="text-2xl font-bold text-white tracking-tight">Violations Management</h1>
           <p className="text-base mt-1.5" style={{ color: '#71717a' }}>{violations.length} records total</p>
         </div>
-        <button onClick={() => { setEditViolation(null); setModalOpen(true); }}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-          style={{ background: 'linear-gradient(135deg,#ef4444,#f97316)' }}>
-          <Plus size={16} /> Add Violation
-        </button>
+        <motion.button 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            console.log('Add Violation clicked');
+            setEditViolation(null); 
+            setModalOpen(true); 
+          }}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg relative z-10"
+          style={{ 
+            background: 'linear-gradient(135deg, #ef4444, #f97316)',
+            cursor: 'pointer'
+          }}
+        >
+          <Plus size={18} /> Add Violation
+        </motion.button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -186,58 +198,71 @@ function ViolationModal({ violation, onClose, onSave, isSaving }) {
   });
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  return (
+  return createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
-      <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
-        onClick={e => e.stopPropagation()} className="rounded-2xl p-8 w-full max-w-lg"
-        style={{ background: '#121212', border: '1px solid #27272a' }}>
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }} onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+        onClick={e => e.stopPropagation()} className="rounded-2xl p-8 w-full max-w-lg overflow-y-auto custom-scrollbar"
+        style={{ background: '#0a0a0a', border: '1px solid #27272a', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)' }}>
+        
+        <style>
+          {`
+            .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+            .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+            .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+          `}
+        </style>
+
         <div className="flex items-center justify-between mb-7">
-          <h3 className="font-bold text-lg text-white">{violation ? 'Edit Violation' : 'Add Violation'}</h3>
-          <button onClick={onClose} style={{ color: '#71717a' }}><X size={20} /></button>
+          <h3 className="font-bold text-xl text-white">{violation ? 'Edit Violation' : 'Add New Violation'}</h3>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors"><X size={24} /></button>
         </div>
-        <div className="space-y-4">
-          {[['Roll Number', 'rollNumber'], ['Violation Type', 'type'], ['Date', 'date', 'date'], ['Action Taken', 'actionTaken']].map(([lbl, key, type]) => (
+        
+        <div className="space-y-5">
+          {[['Roll Number', 'rollNumber', 'text', 'e.g. 21P31A0501'], ['Violation Type', 'type', 'text', 'e.g. Cell Phone Violation'], ['Date', 'date', 'date'], ['Action Taken', 'actionTaken', 'text', 'e.g. Warning Issued']].map(([lbl, key, type, placeholder]) => (
             <div key={key}>
-              <label className="block text-sm font-semibold mb-2" style={{ color: '#71717a' }}>{lbl}</label>
-              <input type={type || 'text'} value={form[key]} onChange={set(key)}
-                className="w-full px-4 py-3 rounded-xl text-sm"
-                style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} />
+              <label className="block text-sm font-semibold mb-2 text-zinc-300">{lbl}</label>
+              <input type={type || 'text'} value={form[key]} onChange={set(key)} placeholder={placeholder}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-red-500/30"
+                style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} />
             </div>
           ))}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: '#71717a' }}>Severity</label>
-              <select value={form.severity} onChange={set('severity')} className="w-full px-4 py-3 rounded-xl text-sm"
-                style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
+              <label className="block text-sm font-semibold mb-2 text-zinc-300">Severity</label>
+              <select value={form.severity} onChange={set('severity')} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }}>
                 {SEVERITIES.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: '#71717a' }}>Status</label>
-              <select value={form.status} onChange={set('status')} className="w-full px-4 py-3 rounded-xl text-sm"
-                style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
+              <label className="block text-sm font-semibold mb-2 text-zinc-300">Status</label>
+              <select value={form.status} onChange={set('status')} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }}>
                 {['Pending', 'Resolved'].map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#71717a' }}>Description</label>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Description</label>
             <textarea value={form.description} onChange={set('description')} rows={3}
-              className="w-full px-4 py-3 rounded-xl text-sm resize-none"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} />
+              className="w-full px-4 py-3 rounded-xl text-sm resize-none outline-none"
+              placeholder="Provide detailed context of the violation..."
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} />
           </div>
         </div>
-        <div className="flex gap-3 mt-7">
-          <button onClick={onClose} disabled={isSaving} className="flex-1 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors" style={{ background: '#1c1917', color: '#a1a1aa', opacity: isSaving ? 0.5 : 1 }}>Cancel</button>
-          <button onClick={() => onSave(form)} disabled={isSaving} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-opacity"
-            style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)', opacity: isSaving ? 0.7 : 1 }}>
+        
+        <div className="flex gap-3 mt-8 pt-4 border-t border-zinc-800">
+          <button onClick={onClose} disabled={isSaving} className="flex-1 py-3.5 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors bg-zinc-900 text-zinc-400" style={{ opacity: isSaving ? 0.5 : 1 }}>Cancel</button>
+          <button onClick={() => onSave(form)} disabled={isSaving} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02]"
+            style={{ background: 'linear-gradient(135deg,#ef4444,#f97316)', opacity: isSaving ? 0.7 : 1 }}>
             {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} 
-            {isSaving ? 'Saving...' : (violation ? 'Update' : 'Add Violation')}
+            {isSaving ? 'Saving...' : (violation ? 'Update Violation' : 'Post Violation')}
           </button>
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }

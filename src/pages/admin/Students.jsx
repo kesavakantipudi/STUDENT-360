@@ -217,31 +217,42 @@ export default function AdminStudents() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modals */}
       <AnimatePresence>
-        {modalOpen && <StudentModal student={editStudent} onClose={() => { setModalOpen(false); setEditStudent(null); }} onSave={handleSave} isSaving={isSaving} />}
+        {modalOpen && (
+          <StudentModal 
+            student={editStudent} 
+            onClose={() => { setModalOpen(false); setEditStudent(null); }} 
+            onSave={handleSave} 
+            isSaving={isSaving} 
+          />
+        )}
       </AnimatePresence>
 
       <AnimatePresence>
-        {deleteConfirm && (
+        {deleteConfirm && createPortal(
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.7)' }} onClick={() => setDeleteConfirm(null)}>
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }} onClick={() => setDeleteConfirm(null)}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
               onClick={e => e.stopPropagation()} className="rounded-2xl p-8 max-w-sm w-full"
-              style={{ background: '#121212', border: '1px solid #27272a' }}>
-              <h3 className="font-bold text-lg text-white mb-3">Remove Student?</h3>
-              <p className="text-base mb-7" style={{ color: '#71717a' }}>This action cannot be undone.</p>
+              style={{ background: '#0a0a0a', border: '1px solid #27272a', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)' }}>
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-5">
+                <Trash2 size={32} className="text-red-500" />
+              </div>
+              <h3 className="font-bold text-xl text-white text-center mb-2">Remove Student?</h3>
+              <p className="text-sm text-center mb-8" style={{ color: '#a1a1aa' }}>This action is permanent and will remove all student records and associated data.</p>
               <div className="flex gap-3">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3 rounded-xl text-sm font-medium" disabled={isDeleting}
-                  style={{ background: '#1c1917', color: '#a1a1aa', opacity: isDeleting ? 0.5 : 1 }}>Cancel</button>
-                <button onClick={() => handleDelete(deleteConfirm)} disabled={isDeleting} className="flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold text-white"
+                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3.5 rounded-xl text-sm font-medium transition-colors hover:bg-zinc-800 bg-zinc-900 text-zinc-400" disabled={isDeleting}
+                  style={{ opacity: isDeleting ? 0.5 : 1 }}>Cancel</button>
+                <button onClick={() => handleDelete(deleteConfirm)} disabled={isDeleting} className="flex-1 py-3.5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-white transition-transform hover:scale-[1.02]"
                   style={{ background: '#ef4444', opacity: isDeleting ? 0.5 : 1 }}>
-                  {isDeleting ? <Loader2 size={16} className="animate-spin" /> : 'Delete'}
+                  {isDeleting ? <Loader2 size={16} className="animate-spin" /> : 'Delete Record'}
                 </button>
               </div>
             </motion.div>
-          </motion.div>
+          </motion.div>,
+          document.body
         )}
       </AnimatePresence>
     </div>
@@ -250,63 +261,73 @@ export default function AdminStudents() {
 
 function StudentModal({ student, onClose, onSave, isSaving }) {
   const [form, setForm] = useState({
-    name: student?.name || '', email: student?.email || '', rollNumber: student?.rollNumber || '',
+    name: student?.name || '', email: student?.email || '', rollNo: student?.rollNo || '',
     department: student?.department || 'Computer Science', year: student?.year || 1,
     cgpa: student?.cgpa || 0, phone: student?.phone || '', githubUsername: student?.githubUsername || '',
   });
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  return (
+  return createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
-      <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-        onClick={e => e.stopPropagation()} className="rounded-2xl p-8 w-full max-w-lg"
-        style={{ background: '#121212', border: '1px solid #27272a' }}>
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }} onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+        onClick={e => e.stopPropagation()} className="rounded-2xl p-8 w-full max-w-lg overflow-y-auto custom-scrollbar"
+        style={{ background: '#0a0a0a', border: '1px solid #27272a', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)' }}>
+        
+        <style>
+          {`
+            .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+            .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+            .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+          `}
+        </style>
+
         <div className="flex items-center justify-between mb-7">
-          <h3 className="font-bold text-lg text-white">{student ? 'Edit Student' : 'Add New Student'}</h3>
-          <button onClick={onClose} style={{ color: '#71717a' }}><X size={20} /></button>
+          <h3 className="font-bold text-xl text-white">{student ? 'Edit Student Profile' : 'Add New Student'}</h3>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors"><X size={24} /></button>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-5">
           {[
-            { label: 'Full Name', key: 'name', type: 'text', col: 2 },
-            { label: 'Email', key: 'email', type: 'email', col: 2 },
-            { label: 'Roll Number', key: 'rollNumber', type: 'text', col: 1 },
-            { label: 'Phone', key: 'phone', type: 'text', col: 1 },
-            { label: 'GitHub Username', key: 'githubUsername', type: 'text', col: 1 },
-            { label: 'CGPA', key: 'cgpa', type: 'number', col: 1 },
+            { label: 'Full Name', key: 'name', type: 'text', col: 2, placeholder: 'e.g. John Doe' },
+            { label: 'Academic Email', key: 'email', type: 'email', col: 2, placeholder: 'e.g. john@university.edu' },
+            { label: 'Roll Number', key: 'rollNo', type: 'text', col: 1, placeholder: 'e.g. 21P31A0501' },
+            { label: 'Phone', key: 'phone', type: 'text', col: 1, placeholder: 'e.g. +91 98765 43210' },
+            { label: 'GitHub Username', key: 'githubUsername', type: 'text', col: 1, placeholder: 'e.g. johndoe' },
+            { label: 'Current CGPA', key: 'cgpa', type: 'number', col: 1, placeholder: '0.00' },
           ].map(f => (
             <div key={f.key} className={f.col === 2 ? 'col-span-2' : ''}>
-              <label className="block text-sm font-semibold mb-2" style={{ color: '#71717a' }}>{f.label}</label>
-              <input type={f.type} value={form[f.key]} onChange={set(f.key)}
-                className="w-full px-4 py-3 rounded-xl text-sm"
-                style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }} />
+              <label className="block text-sm font-semibold mb-2 text-zinc-300">{f.label}</label>
+              <input type={f.type} value={form[f.key]} onChange={set(f.key)} placeholder={f.placeholder}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/30"
+                style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }} />
             </div>
           ))}
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#71717a' }}>Department</label>
-            <select value={form.department} onChange={set('department')} className="w-full px-4 py-3 rounded-xl text-sm"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Department</label>
+            <select value={form.department} onChange={set('department')} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }}>
               {DEPTS.filter(d => d !== 'All').map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: '#71717a' }}>Year</label>
-            <select value={form.year} onChange={set('year')} className="w-full px-4 py-3 rounded-xl text-sm"
-              style={{ background: '#0a0a0a', border: '1px solid #27272a', color: '#fafafa' }}>
+            <label className="block text-sm font-semibold mb-2 text-zinc-300">Current Year</label>
+            <select value={form.year} onChange={set('year')} className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+              style={{ background: '#000000', border: '1px solid #27272a', color: '#fafafa' }}>
               {[1, 2, 3, 4].map(y => <option key={y} value={y}>Year {y}</option>)}
             </select>
           </div>
         </div>
-        <div className="flex gap-3 mt-7">
-          <button onClick={onClose} disabled={isSaving} className="flex-1 py-3 rounded-xl text-sm font-medium" style={{ background: '#1c1917', color: '#a1a1aa', opacity: isSaving ? 0.5 : 1 }}>Cancel</button>
-          <button onClick={() => onSave(form)} disabled={isSaving} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-opacity"
+        <div className="flex gap-3 mt-8 pt-4 border-t border-zinc-800">
+          <button onClick={onClose} disabled={isSaving} className="flex-1 py-3.5 rounded-xl text-sm font-medium transition-colors hover:bg-zinc-800 bg-zinc-900 text-zinc-400" style={{ opacity: isSaving ? 0.5 : 1 }}>Cancel</button>
+          <button onClick={() => onSave(form)} disabled={isSaving} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.02]"
             style={{ background: 'linear-gradient(135deg,#f97316,#f59e0b)', opacity: isSaving ? 0.7 : 1 }}>
             {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} 
-            {isSaving ? 'Saving...' : (student ? 'Update' : 'Add Student')}
+            {isSaving ? 'Saving...' : (student ? 'Update Profile' : 'Add Student')}
           </button>
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }

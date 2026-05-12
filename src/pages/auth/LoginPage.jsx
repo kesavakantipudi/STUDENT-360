@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap,
   Eye,
@@ -10,25 +10,8 @@ import {
   Mail,
   Lock,
   ArrowRight,
+  Sparkles
 } from 'lucide-react';
-
-import {
-  OAuthProvider,
-  signInWithPopup,
-  signInWithEmailAndPassword,
-} from 'firebase/auth';
-
-import {
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
-
-import { db } from '../../firebase/firebase';
-
-import { auth } from '../../firebase/firebase';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -39,181 +22,121 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { setAuthData } = useAuth();
+  const { login, loginWithMicrosoft } = useAuth();
 
-  // =========================
-  // MICROSOFT LOGIN
-  // =========================
   const handleMicrosoftLogin = async () => {
-    try {
-      setLoading(true);
-
-      const provider = new OAuthProvider('microsoft.com');
-
-      provider.setCustomParameters({
-        tenant: '7359f896-71e2-4dae-b8a3-15cdf97f2f10',
-      });
-
-      const result = await signInWithPopup(auth, provider);
-
-      const user = result.user;
-
-      // SAVE USER TO FIRESTORE
-      try {
-        const rollNo = user.email.split('@')[0].toUpperCase();
-        const studentRef = doc(db, 'students', rollNo);
-        const studentSnap = await getDoc(studentRef);
-
-        if (studentSnap.exists()) {
-          await updateDoc(studentRef, {
-            email: user.email,
-            lastLogin: serverTimestamp(),
-            uid: user.uid,
-            photo: user.photoURL || "",
-          });
-        } else {
-          toast.error("Student record not found in the database. Please contact Admin.");
-          // We should ideally sign them out or prevent login, but we'll follow the user's logic
-        }
-      } catch (dbError) {
-        console.error('Firestore Save Error:', dbError);
-      }
-
-      setAuthData(
-        { uid: user.uid, email: user.email, name: user.displayName, photo: user.photoURL },
-        'student'
-      );
-
-      toast.success('Microsoft Login Successful');
-
-      navigate('/student/dashboard');
-
-    } catch (error) {
-      console.error('Microsoft Login Error:', error);
-
-      toast.error(error.message || 'Login Failed');
-    } finally {
-      setLoading(false);
+    const result = await loginWithMicrosoft();
+    if (result.success) {
+      toast.success("Student Login Successful");
+      navigate("/student/dashboard");
+    } else {
+      toast.error(result.error || "Microsoft login failed");
     }
   };
 
-
-  // =========================
-  // ADMIN LOGIN
-  // =========================
-  const handleAdminLogin = async (e) => {
-    e.preventDefault();
-
-    if (!email || !password) {
-      toast.error('Please fill all fields');
-      return;
+  const handleLogin = async (e) => {
+    if (e) e.preventDefault();
+    setLoading(true);
+    
+    const result = await login(email, password, role);
+    
+    if (result.success) {
+      const displayRole = result.role || 'user';
+      toast.success(`${displayRole.charAt(0).toUpperCase() + displayRole.slice(1)} Login Successful`);
+      navigate(`/${displayRole}/dashboard`);
+    } else {
+      toast.error(result.error);
     }
+    setLoading(false);
+  };
 
-    try {
-      setLoading(true);
-
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      setAuthData(
-        { uid: user.uid, email: user.email },
-        'admin'
-      );
-
-      toast.success('Admin Login Successful');
-
-      navigate('/admin/dashboard');
-    } catch (error) {
-      console.log(error);
-      toast.error('Invalid admin credentials');
-    } finally {
-      setLoading(false);
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        staggerChildren: 0.1,
+        ease: [0.22, 1, 0.36, 1]
+      }
     }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0 }
   };
 
   return (
     <div
       className="min-h-screen flex items-center justify-center relative overflow-hidden px-6 py-10"
-      style={{ background: '#050505' }}
+      style={{ background: '#020202' }}
     >
-      {/* Background Effects */}
-      <div className="absolute inset-0 overflow-hidden">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-          className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-10"
-          style={{
-            background:
-              'radial-gradient(circle, rgba(249,115,22,0.5), transparent)',
-          }}
-        />
-
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-          className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full opacity-10"
-          style={{
-            background:
-              'radial-gradient(circle, rgba(245,158,11,0.5), transparent)',
-          }}
+      {/* Background Effects - Premium Ambient Glows */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full opacity-[0.08] blur-[120px]" style={{ background: '#f97316' }} />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full opacity-[0.08] blur-[120px]" style={{ background: '#f59e0b' }} />
+        <div className="absolute top-[30%] right-[20%] w-[30%] h-[30%] rounded-full opacity-[0.04] blur-[100px]" style={{ background: '#06b6d4' }} />
+        
+        {/* Animated grid overlay */}
+        <div 
+          className="absolute inset-0 opacity-[0.03]" 
+          style={{ 
+            backgroundImage: `radial-gradient(#ffffff 1px, transparent 1px)`, 
+            backgroundSize: '40px 40px' 
+          }} 
         />
       </div>
 
       {/* Login Card */}
       <motion.div
-        initial={{ opacity: 0, y: 25 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
         className="relative w-full max-w-md"
       >
         <div
-          className="backdrop-blur-2xl border rounded-3xl p-8 md:p-10"
+          className="backdrop-blur-3xl border rounded-[2rem] p-8 md:p-10"
           style={{
-            background: 'rgba(255,255,255,0.04)',
+            background: 'rgba(255,255,255,0.03)',
             borderColor: 'rgba(255,255,255,0.08)',
-            boxShadow: '0 25px 80px rgba(0,0,0,0.6)',
+            boxShadow: '0 40px 100px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.05)',
           }}
         >
           {/* Logo */}
-          <div className="flex flex-col items-center mb-10">
+          <motion.div variants={itemVariants} className="flex flex-col items-center mb-10">
             <div
-              className="w-20 h-20 rounded-3xl flex items-center justify-center mb-5"
+              className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6 relative group"
               style={{
-                background:
-                  'linear-gradient(135deg, #f97316, #f59e0b)',
+                background: 'linear-gradient(135deg, #f97316, #f59e0b)',
+                boxShadow: '0 20px 40px rgba(249,115,22,0.3)',
               }}
             >
-              <GraduationCap size={38} color="white" />
+              <GraduationCap size={40} color="white" />
+              <motion.div 
+                animate={{ rotate: 360 }}
+                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-[-4px] rounded-[26px] border border-orange-500/20 pointer-events-none" 
+              />
             </div>
 
-            <h1 className="text-3xl font-bold text-white tracking-wide">
-              STUDENT 360°
+            <h1 className="text-4xl font-black text-white tracking-tighter flex items-center gap-2">
+              STUDENT <span className="text-orange-500">360°</span>
             </h1>
 
-            <p className="text-sm mt-2 text-zinc-400 text-center">
-              AI Powered Academic Intelligence Platform
+            <p className="text-zinc-400 text-sm mt-3 font-medium flex items-center gap-2">
+              <Sparkles size={14} className="text-orange-400" />
+              AI-Powered Academic Intelligence
             </p>
-          </div>
+          </motion.div>
 
           {/* Role Toggle */}
-          <div
-            className="flex gap-2 p-1 rounded-2xl mb-8"
+          <motion.div
+            variants={itemVariants}
+            className="flex gap-2 p-1.5 rounded-2xl mb-8"
             style={{
-              background: 'rgba(255,255,255,0.04)',
+              background: 'rgba(0,0,0,0.3)',
               border: '1px solid rgba(255,255,255,0.06)',
             }}
           >
@@ -225,146 +148,168 @@ export default function LoginPage() {
                   setEmail('');
                   setPassword('');
                 }}
-                className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${role === item ? 'text-white' : 'text-zinc-500'
-                  }`}
-                style={
-                  role === item
-                    ? {
-                      background:
-                        'linear-gradient(135deg, #f97316, #f59e0b)',
-                      boxShadow:
-                        '0 10px 25px rgba(249,115,22,0.35)',
-                    }
-                    : {}
-                }
+                className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all duration-500 relative overflow-hidden ${
+                  role === item ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
               >
-                <div className="flex items-center justify-center gap-2">
-                  {item === 'student' ? (
-                    <Mail size={16} />
-                  ) : (
-                    <Shield size={16} />
-                  )}
-
+                {role === item && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute inset-0 z-0"
+                    style={{
+                      background: 'linear-gradient(135deg, #f97316, #f59e0b)',
+                      boxShadow: '0 8px 20px rgba(249,115,22,0.3)',
+                    }}
+                    transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                <div className="flex items-center justify-center gap-2 relative z-10">
+                  {item === 'student' ? <Mail size={16} /> : <Shield size={16} />}
                   {item === 'student' ? 'Student' : 'Admin'}
                 </div>
               </button>
             ))}
-          </div>
+          </motion.div>
 
-          {/* STUDENT LOGIN */}
-          {role === 'student' ? (
-            <div className="space-y-6">
-              <button
-                onClick={handleMicrosoftLogin}
-                disabled={loading}
-                className="w-full py-4 rounded-2xl text-white font-semibold transition-all duration-300 flex items-center justify-center gap-3"
-                style={{
-                  background:
-                    'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                  boxShadow:
-                    '0 10px 30px rgba(37,99,235,0.35)',
-                }}
-              >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    Sign in with Microsoft
-                    <ArrowRight size={18} />
-                  </>
-                )}
-              </button>
-
-              <p className="text-center text-xs text-zinc-500 leading-6">
-                Use your organization Microsoft account to access
-                STUDENT 360°
-              </p>
-            </div>
-          ) : (
-            /* ADMIN LOGIN */
-            <form onSubmit={handleAdminLogin} className="space-y-5">
-              {/* Email */}
-              <div>
-                <label className="block text-sm mb-2 text-zinc-300">
-                  Admin Email
-                </label>
-
-                <div className="relative">
-                  <Mail
-                    size={16}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
-                  />
-
-                  <input
-                    type="email"
-                    placeholder="Enter admin email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-white outline-none focus:border-orange-500 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div>
-                <label className="block text-sm mb-2 text-zinc-300">
-                  Password
-                </label>
-
-                <div className="relative">
-                  <Lock
-                    size={16}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
-                  />
-
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-12 py-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-white outline-none focus:border-orange-500 transition-all"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500"
+          {/* Form Content */}
+          <motion.div variants={itemVariants} className="space-y-5">
+            <AnimatePresence mode="wait">
+              {role === 'student' ? (
+                <motion.div
+                  key="student-sso"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-6 text-center"
+                >
+                  <p className="text-sm text-zinc-400 mb-6">
+                    Please use your institution account to access your 360° dashboard.
+                  </p>
+                  
+                  <motion.button
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleMicrosoftLogin}
+                    disabled={loading}
+                    className="w-full py-4 rounded-2xl text-white font-bold flex items-center justify-center gap-3 group relative overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                      boxShadow: '0 20px 40px rgba(37,99,235,0.25)',
+                    }}
                   >
-                    {showPassword ? (
-                      <EyeOff size={18} />
+                    <motion.div 
+                      className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-[-20deg]" 
+                    />
+                    {loading ? (
+                      <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
-                      <Eye size={18} />
+                      <>
+                        <svg className="w-5 h-5" viewBox="0 0 23 23">
+                          <path fill="#f3f3f3" d="M0 0h11v11H0zM12 0h11v11H12zM0 12h11v11H0zM12 12h11v11H12z"/>
+                        </svg>
+                        Sign in with Microsoft
+                        <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                      </>
                     )}
-                  </button>
-                </div>
-              </div>
+                  </motion.button>
+                  
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
+                    Organization SSO Required
+                  </p>
+                </motion.div>
+              ) : (
+                <motion.form
+                  key="admin-form"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.3 }}
+                  onSubmit={handleLogin}
+                  className="space-y-5"
+                >
+                  {/* Email Input */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">
+                      Administrator ID
+                    </label>
+                    <div className="relative group">
+                      <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-orange-500 transition-colors" />
+                      <input
+                        type="email"
+                        placeholder="admin@s360.edu"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-12 pr-4 py-4 rounded-2xl bg-black/40 border border-white/10 text-white outline-none focus:border-orange-500/50 focus:bg-black/60 transition-all placeholder:text-zinc-700 font-medium"
+                      />
+                    </div>
+                  </div>
 
-              {/* Button */}
-              <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 rounded-2xl text-white font-semibold flex items-center justify-center gap-2"
-                style={{
-                  background:
-                    'linear-gradient(135deg, #f97316, #f59e0b)',
-                  boxShadow:
-                    '0 10px 30px rgba(249,115,22,0.35)',
-                }}
-              >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    Admin Login
-                    <ArrowRight size={18} />
-                  </>
-                )}
-              </motion.button>
-            </form>
-          )}
+                  {/* Password Input */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">
+                      Security Credential
+                    </label>
+                    <div className="relative group">
+                      <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-orange-500 transition-colors" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full pl-12 pr-12 py-4 rounded-2xl bg-black/40 border border-white/10 text-white outline-none focus:border-orange-500/50 focus:bg-black/60 transition-all placeholder:text-zinc-700 font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-4 rounded-2xl text-white font-bold flex items-center justify-center gap-2 group relative overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, #f97316, #f59e0b)',
+                      boxShadow: '0 20px 40px rgba(249,115,22,0.25)',
+                    }}
+                  >
+                    <motion.div 
+                      className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-[-20deg]" 
+                    />
+                    {loading ? (
+                      <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        Authorize System
+                        <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </motion.button>
+                </motion.form>
+              )}
+            </AnimatePresence>
+            
+            <p className="text-center text-[10px] text-zinc-600 font-bold uppercase tracking-widest pt-2">
+              Protected by Enterprise Grade Encryption
+            </p>
+          </motion.div>
         </div>
+        
+        {/* Support Hint */}
+        <motion.div 
+          variants={itemVariants}
+          className="mt-8 text-center"
+        >
+          <p className="text-xs text-zinc-500">
+            For technical support, contact the IT department at <span className="text-zinc-300 font-mono">support@s360.edu</span>
+          </p>
+        </motion.div>
       </motion.div>
     </div>
   );

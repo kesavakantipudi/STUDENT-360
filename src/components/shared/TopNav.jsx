@@ -41,10 +41,17 @@ export default function TopNav({ title = 'Dashboard' }) {
       {/* Mobile menu toggle */}
       <button
         onClick={toggleSidebar}
-        className="lg:hidden"
-        style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '0.5rem', border: 'none', background: 'transparent', color: '#71717a', cursor: 'pointer' }}
+        className="flex items-center justify-center rounded-xl transition-all hover:bg-white/5 active:scale-95"
+        style={{ 
+          width: 38, 
+          height: 38, 
+          border: '1px solid #27272a',
+          background: 'rgba(255,255,255,0.03)',
+          color: '#a1a1aa',
+          cursor: 'pointer'
+        }}
       >
-        <Menu size={18} />
+        <Menu size={20} />
       </button>
 
       {/* Page breadcrumb */}
