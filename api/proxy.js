@@ -22,8 +22,6 @@ export default async function handler(req, res) {
     return handleResultSubmission(req, res, targetPath);
   }
 
-  // NOTE: Do not disable SSL verification in production. Use a valid backend certificate or a trusted reverse proxy.
-
   const targetUrl = `https://maya.technicalhub.io/node/api/${targetPath}`;
 
   try {
@@ -31,31 +29,45 @@ export default async function handler(req, res) {
       method: req.method,
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         // Spoof the Origin and Referer to bypass the backend's strict CORS check
         'Origin': 'https://maya.technicalhub.io',
-        'Referer': 'https://maya.technicalhub.io/'
+        'Referer': 'https://maya.technicalhub.io/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     };
 
-    if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
-      fetchOptions.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    // Forward the body for POST/PUT/PATCH requests
+    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+      if (req.body) {
+        fetchOptions.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      }
     }
 
     const backendRes = await fetch(targetUrl, fetchOptions);
-    const data = await backendRes.text();
-
-    // Check if the response is JSON
-    let parsedData = data;
-    try {
-      parsedData = JSON.parse(data);
-    } catch (e) {
-      // Return as text if it's not JSON
+    const contentType = backendRes.headers.get('content-type');
+    
+    let data;
+    if (contentType && contentType.includes('application/json')) {
+      data = await backendRes.json();
+    } else {
+      data = await backendRes.text();
+      try {
+        data = JSON.parse(data);
+      } catch (e) {
+        // Keep as text if not JSON
+      }
     }
 
-    return res.status(backendRes.status).send(parsedData);
+    return res.status(backendRes.status).send(data);
   } catch (error) {
-    console.error('Proxy error:', error);
-    return res.status(500).json({ error: 'Failed to proxy request', details: error.message });
+    console.error(`Proxy error for ${targetPath}:`, error);
+    return res.status(500).json({ 
+      error: 'Failed to proxy request', 
+      message: error.message,
+      path: targetPath,
+      target: targetUrl
+    });
   }
 }
 
