@@ -1,74 +1,76 @@
+import https from 'https';
+
 export default async function handler(req, res) {
-  // Allow cross-origin requests from the Vercel frontend
+  // Allow cross-origin requests
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
-  // Handle preflight request
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
-  // Extract the target API path from the query string
   const targetPath = req.query.path;
   if (!targetPath) {
     return res.status(400).json({ error: 'Missing path parameter' });
   }
 
-  // Handle result submission endpoints locally (don't proxy to external API)
+  // Handle result submission locally
   if (targetPath.startsWith('submit-result') || targetPath.startsWith('results/')) {
     return handleResultSubmission(req, res, targetPath);
   }
 
-  const targetUrl = `https://maya.technicalhub.io/node/api/${targetPath}`;
-
-  try {
-    const fetchOptions = {
-      method: req.method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        // Spoof the Origin and Referer to bypass the backend's strict CORS check
-        'Origin': 'https://maya.technicalhub.io',
-        'Referer': 'https://maya.technicalhub.io/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
-    };
-
-    // Forward the body for POST/PUT/PATCH requests
-    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-      if (req.body) {
-        fetchOptions.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-      }
+  const options = {
+    hostname: 'maya.technicalhub.io',
+    port: 443,
+    path: `/node/api/${targetPath}`,
+    method: req.method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Origin': 'https://maya.technicalhub.io',
+      'Referer': 'https://maya.technicalhub.io/',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
+  };
 
-    const backendRes = await fetch(targetUrl, fetchOptions);
-    const contentType = backendRes.headers.get('content-type');
-    
-    let data;
-    if (contentType && contentType.includes('application/json')) {
-      data = await backendRes.json();
-    } else {
-      data = await backendRes.text();
-      try {
-        data = JSON.parse(data);
-      } catch (e) {
-        // Keep as text if not JSON
-      }
-    }
-
-    return res.status(backendRes.status).send(data);
-  } catch (error) {
-    console.error(`Proxy error for ${targetPath}:`, error);
-    return res.status(500).json({ 
-      error: 'Failed to proxy request', 
-      message: error.message,
-      path: targetPath,
-      target: targetUrl
+  return new Promise((resolve) => {
+    const proxyReq = https.request(options, (proxyRes) => {
+      let data = '';
+      proxyRes.on('data', (chunk) => { data += chunk; });
+      proxyRes.on('end', () => {
+        res.status(proxyRes.statusCode);
+        const contentType = proxyRes.headers['content-type'];
+        if (contentType) res.setHeader('Content-Type', contentType);
+        
+        try {
+          // If it's JSON, send as object, otherwise send as raw text/buffer
+          if (contentType && contentType.includes('application/json')) {
+            res.send(JSON.parse(data));
+          } else {
+            res.send(data);
+          }
+        } catch (e) {
+          res.send(data);
+        }
+        resolve();
+      });
     });
-  }
+
+    proxyReq.on('error', (e) => {
+      console.error(`Proxy error for ${targetPath}:`, e);
+      res.status(500).json({ error: 'Proxy Request Failed', message: e.message });
+      resolve();
+    });
+
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+      const bodyData = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      proxyReq.write(bodyData);
+    }
+
+    proxyReq.end();
+  });
 }
 
 /**
