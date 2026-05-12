@@ -97,11 +97,12 @@ export default function StudentDashboard() {
           } catch (e) { console.error("Firestore error:", e); }
         }
 
+        // Generate deterministic seed based on roll number for consistency in mocks
+        const seed = rollNo.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
         // Unified Stats (API -> Mock based on roll number)
         let finalStats = statsJson;
         if (!finalStats) {
-          // Generate deterministic mock data based on roll number for consistency
-          const seed = rollNo.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
           finalStats = {
             total: 120 + (seed % 300),
             easy: 60 + (seed % 100),
