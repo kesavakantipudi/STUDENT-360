@@ -170,7 +170,7 @@ export default function TopNav({ title = 'Dashboard' }) {
             {rollNo ? (
               <>
                 <img 
-                  src={`https://mobile.technicalhub.io:5010/uploads/students-images/${rollNo}.png`} 
+                  src={`https://info.aec.edu.in/acet/StudentPhotos/${rollNo}.jpg`} 
                   alt="Profile" 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   onError={(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'block'; }}

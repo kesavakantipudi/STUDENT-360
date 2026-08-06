@@ -7,7 +7,7 @@ import { LoadingSkeleton } from '../../components/shared/LoadingSkeleton';
 import { ErrorState } from '../../components/shared/ErrorState';
 import { formatDate, getDaysUntil, getGradeColor, calculatePlacementIndex } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 
 const ChartTip = ({ active, payload, label }) =>
@@ -54,21 +54,69 @@ export default function StudentDashboard() {
         const headers = { 'Content-Type': 'application/json' };
 
         const safeFetch = async (url) => {
+          const cacheKey = `${rollNo}_${url}`;
+          const cached = sessionStorage.getItem(cacheKey);
+          if (cached) {
+            try { return JSON.parse(cached); } catch (e) {}
+          }
           try {
             const res = await fetch(url, { method: 'POST', headers, body, timeout: 10000 });
             if (!res.ok) {
               console.warn(`⚠️ API returned status ${res.status} for ${url}`);
               return null;
             }
-            return await res.json();
+            const data = await res.json();
+            sessionStorage.setItem(cacheKey, JSON.stringify(data));
+            return data;
           } catch (e) {
             console.warn(`⚠️ Fetch failed for ${url}:`, e.message);
             return null;
           }
         };
 
+        const fetchStudentDetails = async () => {
+          const cacheKey = `${rollNo}_student_details`;
+          const cached = sessionStorage.getItem(cacheKey);
+          if (cached) {
+            try { return JSON.parse(cached); } catch (e) {}
+          }
+          try {
+            const idRes = await fetch('/api/get-student-id-by-rollno', {
+              method: 'POST',
+              headers,
+              body,
+              timeout: 10000
+            });
+            if (!idRes.ok) {
+              console.warn(`⚠️ get-student-id-by-rollno returned status ${idRes.status}`);
+              return null;
+            }
+            const idData = await idRes.json();
+            if (!idData.success || !idData.objectId) {
+              console.warn(`⚠️ get-student-id-by-rollno failed:`, idData);
+              return null;
+            }
+            
+            const detailsRes = await fetch(`/api/get-user-by-id/${idData.objectId}`, {
+              method: 'GET',
+              headers: { 'Accept': 'application/json' },
+              timeout: 10000
+            });
+            if (!detailsRes.ok) {
+              console.warn(`⚠️ get-user-by-id returned status ${detailsRes.status}`);
+              return null;
+            }
+            const data = await detailsRes.json();
+            sessionStorage.setItem(cacheKey, JSON.stringify(data));
+            return data;
+          } catch (e) {
+            console.warn(`⚠️ fetchStudentDetails failed:`, e.message);
+            return null;
+          }
+        };
+
         const [studentJson, statsJson, lc, gfg, cc, hr] = await Promise.all([
-          safeFetch('/api/get-student-by-rollno'),
+          fetchStudentDetails(),
           safeFetch('/api/get-student-problems-count-dashboard'),
           safeFetch('/api/get-leetcode-details-by-rollno'),
           safeFetch('/api/get-geeksforgeeks-details-by-rollno'),
@@ -122,10 +170,10 @@ export default function StudentDashboard() {
         
         setUpcomingExams(examsData.slice(0, 3));
 
-        const resultsSnap = await getDocs(collection(db, 'results'));
+        const resultsQuery = query(collection(db, 'results'), where('rollNo', '==', rollNo));
+        const resultsSnap = await getDocs(resultsQuery);
         const userResults = resultsSnap.docs
-          .map(d => d.data())
-          .filter(r => r.rollNo === rollNo || r.roll_no === rollNo);
+          .map(d => d.data());
         
         setMyResults(userResults);
         setCodingProfiles({ 

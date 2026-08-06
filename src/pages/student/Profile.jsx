@@ -30,22 +30,70 @@ export default function ProfilePage() {
         const headers = { 'Content-Type': 'application/json' };
         
         const safeFetch = async (url) => {
+          const cacheKey = `${rollNo}_${url}`;
+          const cached = sessionStorage.getItem(cacheKey);
+          if (cached) {
+            try { return JSON.parse(cached); } catch (e) {}
+          }
           try {
             const res = await fetch(url, { method: 'POST', headers, body, timeout: 10000 });
             if (!res.ok) {
               console.warn(`⚠️ API returned status ${res.status} for ${url}`);
               return null;
             }
-            return await res.json();
+            const data = await res.json();
+            sessionStorage.setItem(cacheKey, JSON.stringify(data));
+            return data;
           } catch (e) {
             console.warn(`⚠️ Fetch failed for ${url}:`, e.message);
             return null;
           }
         };
 
+        const fetchStudentDetails = async () => {
+          const cacheKey = `${rollNo}_student_details`;
+          const cached = sessionStorage.getItem(cacheKey);
+          if (cached) {
+            try { return JSON.parse(cached); } catch (e) {}
+          }
+          try {
+            const idRes = await fetch('/api/get-student-id-by-rollno', {
+              method: 'POST',
+              headers,
+              body,
+              timeout: 10000
+            });
+            if (!idRes.ok) {
+              console.warn(`⚠️ get-student-id-by-rollno returned status ${idRes.status}`);
+              return null;
+            }
+            const idData = await idRes.json();
+            if (!idData.success || !idData.objectId) {
+              console.warn(`⚠️ get-student-id-by-rollno failed:`, idData);
+              return null;
+            }
+            
+            const detailsRes = await fetch(`/api/get-user-by-id/${idData.objectId}`, {
+              method: 'GET',
+              headers: { 'Accept': 'application/json' },
+              timeout: 10000
+            });
+            if (!detailsRes.ok) {
+              console.warn(`⚠️ get-user-by-id returned status ${detailsRes.status}`);
+              return null;
+            }
+            const data = await detailsRes.json();
+            sessionStorage.setItem(cacheKey, JSON.stringify(data));
+            return data;
+          } catch (e) {
+            console.warn(`⚠️ fetchStudentDetails failed:`, e.message);
+            return null;
+          }
+        };
+
         // Try all APIs in parallel with timeout
         const [studentJson, lc, gfg, cc, hr] = await Promise.all([
-          safeFetch('/api/get-student-by-rollno'),
+          fetchStudentDetails(),
           safeFetch('/api/get-leetcode-details-by-rollno'),
           safeFetch('/api/get-geeksforgeeks-details-by-rollno'),
           safeFetch('/api/get-codechef-details-by-rollno'),
@@ -88,8 +136,8 @@ export default function ProfilePage() {
 
         // Fetch Firestore profile data
         let firestoreGithubUrl = '';
-        if (user?.uid) {
-          const docRef = doc(db, 'students', user.uid);
+        if (rollNo) {
+          const docRef = doc(db, 'students', rollNo);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
@@ -145,10 +193,13 @@ export default function ProfilePage() {
           }
         }
 
-        await setDoc(doc(db, 'students', user.uid), {
+        await setDoc(doc(db, 'students', rollNo), {
           githubUrl: form.githubUrl,
           githubUsername: githubUsername
         }, { merge: true });
+        
+        // Clear sessionStorage cache to force fresh fetch
+        sessionStorage.removeItem(`${rollNo}_student_details`);
         
         setGithubConnected(!!form.githubUrl);
         toast.success('Profile updated successfully!');
@@ -182,7 +233,7 @@ export default function ProfilePage() {
               {rollNo ? (
                 <>
                   <img 
-                    src={`https://mobile.technicalhub.io:5010/uploads/students-images/${rollNo}.png`} 
+                    src={`https://info.aec.edu.in/acet/StudentPhotos/${rollNo}.jpg`} 
                     alt="Profile" 
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     onError={(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'block'; }}

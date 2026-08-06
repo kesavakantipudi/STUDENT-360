@@ -22,15 +22,15 @@ export default async function handler(req, res) {
   }
 
   const options = {
-    hostname: 'maya.technicalhub.io',
+    hostname: 'api.maya.adityauniversity.in',
     port: 443,
     path: `/node/api/${targetPath}`,
     method: req.method,
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Origin': 'https://maya.technicalhub.io',
-      'Referer': 'https://maya.technicalhub.io/',
+      'Origin': 'https://maya.adityauniversity.in',
+      'Referer': 'https://maya.adityauniversity.in/',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
   };

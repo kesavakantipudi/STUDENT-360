@@ -36,6 +36,7 @@ const CustomBarTooltip = ({ active, payload }) => {
 
 export default function GitHubAnalysisPage() {
   const { user } = useAuth();
+  const rollNo = user?.email ? user.email.split('@')[0].toUpperCase() : '';
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
@@ -55,10 +56,10 @@ export default function GitHubAnalysisPage() {
     setLoading(true);
     setError(false);
     try {
-      if (!user?.uid) return;
+      if (!rollNo) return;
       
       // 1. Fetch Username from Firestore
-      const docRef = doc(db, 'students', user.uid);
+      const docRef = doc(db, 'students', rollNo);
       const docSnap = await getDoc(docRef);
       let username = null;
       

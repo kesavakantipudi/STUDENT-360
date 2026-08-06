@@ -175,48 +175,80 @@ export default function LoginPage() {
           <motion.div variants={itemVariants} className="space-y-5">
             <AnimatePresence mode="wait">
               {role === 'student' ? (
-                <motion.div
-                  key="student-sso"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-6 text-center"
+                <motion.form
+                  key="student-form"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.3 }}
+                  onSubmit={handleLogin}
+                  className="space-y-5"
                 >
-                  <p className="text-sm text-zinc-400 mb-6">
-                    Please use your institution account to access your 360° dashboard.
-                  </p>
-                  
+                  {/* Email Input */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">
+                      Student Email
+                    </label>
+                    <div className="relative group">
+                      <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-orange-500 transition-colors" />
+                      <input
+                        type="email"
+                        placeholder="student@s360.edu"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-12 pr-4 py-4 rounded-2xl bg-black/40 border border-white/10 text-white outline-none focus:border-orange-500/50 focus:bg-black/60 transition-all placeholder:text-zinc-700 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Input */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">
+                      Password
+                    </label>
+                    <div className="relative group">
+                      <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-orange-500 transition-colors" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full pl-12 pr-12 py-4 rounded-2xl bg-black/40 border border-white/10 text-white outline-none focus:border-orange-500/50 focus:bg-black/60 transition-all placeholder:text-zinc-700 font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
                   <motion.button
                     whileHover={{ scale: 1.02, y: -2 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={handleMicrosoftLogin}
+                    type="submit"
                     disabled={loading}
-                    className="w-full py-4 rounded-2xl text-white font-bold flex items-center justify-center gap-3 group relative overflow-hidden"
+                    className="w-full py-4 rounded-2xl text-white font-bold flex items-center justify-center gap-2 group relative overflow-hidden"
                     style={{
-                      background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                      boxShadow: '0 20px 40px rgba(37,99,235,0.25)',
+                      background: 'linear-gradient(135deg, #f97316, #f59e0b)',
+                      boxShadow: '0 20px 40px rgba(249,115,22,0.25)',
                     }}
                   >
                     <motion.div 
-                      className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-[-20deg]" 
+                      className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-[-20deg]" 
                     />
                     {loading ? (
                       <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
                       <>
-                        <svg className="w-5 h-5" viewBox="0 0 23 23">
-                          <path fill="#f3f3f3" d="M0 0h11v11H0zM12 0h11v11H12zM0 12h11v11H0zM12 12h11v11H12z"/>
-                        </svg>
-                        Sign in with Microsoft
+                        Student Login
                         <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                       </>
                     )}
                   </motion.button>
-                  
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
-                    Organization SSO Required
-                  </p>
-                </motion.div>
+                </motion.form>
               ) : (
                 <motion.form
                   key="admin-form"
